@@ -50,8 +50,11 @@ from pages_view import historical_intelligence
 st.set_page_config(
     page_title="JSM Analyzer",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+inject_css()
 
 if not login():
     st.stop()
@@ -108,7 +111,7 @@ if st.session_state.jira_df is None:
         st.session_state.last_jql = "Loaded from local cache"
 
 
-inject_css()
+
 header()
 
 

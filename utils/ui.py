@@ -28,10 +28,35 @@ html, body, [class*="css"] {{
 header[data-testid="stHeader"],
 .stDeployButton,
 div[data-testid="stToolbar"] {{
-    display: none;
+    display: block !important;
 }}
 
 
+
+/* Hide Streamlit deploy button only */
+.stDeployButton {{
+    display: none !important;
+}}
+
+/* Hide Streamlit status/running widget */
+div[data-testid="stStatusWidget"] {{
+    display: none !important;
+}}
+
+/* Hide Streamlit bottom-right floating widgets if shown */
+div[data-testid="stDecoration"] {{
+    display: none !important;
+}}
+
+/* Keep header/sidebar toggle working */
+header[data-testid="stHeader"] {{
+    background: transparent !important;
+}}
+
+/* Reduce top toolbar visual space but do not remove it */
+header[data-testid="stHeader"]::before {{
+    display: none !important;
+}}
 
 .main .block-container {{
     padding-top: 0.4rem;
