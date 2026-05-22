@@ -11,15 +11,7 @@ ACCENT = "#eb7d23"
 LOGO_PATH = Path("assets/kifiya-logo.png")
 
 
-
-def inject_css(sidebar_open: bool = True):
-    """Inject CSS and responsive rules. Pass sidebar_open=False to hide the sidebar via CSS."""
-    hide_sidebar_css = "" if sidebar_open else (
-        "section[data-testid=\"stSidebar\"]{display:none !important;}"
-        "div[data-testid=\"stAppViewContainer\"] > div:first-child{margin-left:0 !important;}"
-        "div[class*=\"block-container\"]{max-width:100% !important; padding-left:1rem !important; padding-right:1rem !important;}"
-    )
-
+def inject_css():
     st.markdown(
         f"""
 <style>
@@ -38,6 +30,8 @@ header[data-testid="stHeader"],
 div[data-testid="stToolbar"] {{
     display: block !important;
 }}
+
+
 
 .main .block-container {{
     padding-top: 0.4rem;
@@ -124,12 +118,15 @@ h1, h2, h3, h4 {{
 }}
 
 section[data-testid="stSidebar"] {{
+    
     border-right: 1px solid #dbe5e8;
     color: {PRIMARY};
+
 }}
 
 section[data-testid="stSidebar"] > div:first-child {{
     padding-top: 1rem;
+    
 }}
 
 section[data-testid="stSidebar"] h2,
@@ -150,25 +147,6 @@ div[role="radiogroup"] label {{
 div[role="radiogroup"] label:hover {{
     background: {ACCENT} !important;
     color: white !important;
-}}
-
-{hide_sidebar_css}
-
-/* Responsive tweaks */
-@media (max-width: 1100px) {{
-    .main .block-container {{
-        padding-left: 0.9rem;
-        padding-right: 0.9rem;
-        max-width: 100%;
-    }}
-    .kifiya-title {{ font-size: 30px; }}
-    .kpi-value {{ font-size: 28px; }}
-}}
-
-@media (max-width: 700px) {{
-    .main .block-container {{ padding-left: 0.6rem; padding-right: 0.6rem; }}
-    .kifiya-title {{ font-size: 22px; }}
-    .refresh-card {{ padding: 10px 12px; }}
 }}
 
 div[data-testid="stExpander"] details {{
