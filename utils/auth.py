@@ -18,7 +18,10 @@ def check_password(password, hashed_password):
 
 
 def is_logged_in_from_url():
-    return st.query_params.get("auth") == SESSION_TOKEN
+    return (
+        st.query_params.get("auth") == SESSION_TOKEN
+        and st.query_params.get("user") is not None
+    )
 
 
 def login():
@@ -29,7 +32,11 @@ def login():
         st.session_state.username = ""
 
     if is_logged_in_from_url():
+        username = st.query_params.get("user")
+
         st.session_state.authenticated = True
+        st.session_state.username = username
+
         return True
 
     if st.session_state.authenticated:
@@ -71,8 +78,16 @@ def login():
         )
 
         with st.container(border=True):
-            username = st.text_input("Username", placeholder="Enter username")
-            password = st.text_input("Password", type="password", placeholder="Enter password")
+            username = st.text_input(
+                "Username",
+                placeholder="Enter username"
+            )
+
+            password = st.text_input(
+                "Password",
+                type="password",
+                placeholder="Enter password"
+            )
 
             login_btn = st.button(
                 "Login",
@@ -87,38 +102,64 @@ def login():
                 stored_hash = users[username]["password_hash"]
 
                 if check_password(password, stored_hash):
+                    role = users[username].get("role", "slt_viewer")
+
                     st.session_state.authenticated = True
                     st.session_state.username = username
 
                     st.query_params["auth"] = SESSION_TOKEN
-                  
-                    role = users[username].get("role", "slt_viewer")
-                    write_audit_log(username, role, "LOGIN_SUCCESS")
+                    st.query_params["user"] = username
+
+                    write_audit_log(
+                        username,
+                        role,
+                        "LOGIN_SUCCESS"
+                    )
+
                     st.rerun()
-            write_audit_log(username, "unknown", "LOGIN_FAILED")
+
+            write_audit_log(
+                username,
+                "unknown",
+                "LOGIN_FAILED"
+            )
+
             st.error("Invalid username or password")
 
     return False
 
 
+def logout():
+    username = st.session_state.get("username", "")
+    role = get_user_role()
+
+    write_audit_log(
+        username,
+        role,
+        "LOGOUT"
+    )
+
+    st.session_state.authenticated = False
+    st.session_state.username = ""
+
+    if "auth" in st.query_params:
+        del st.query_params["auth"]
+
+    if "user" in st.query_params:
+        del st.query_params["user"]
+
+    st.rerun()
+
+
 def logout_button():
     with st.sidebar:
         st.divider()
-        st.caption(f"Logged in as: **{st.session_state.get('username', '')}**")
+        st.caption(
+            f"Logged in as: **{st.session_state.get('username', '')}**"
+        )
 
         if st.button("Logout"):
-            st.session_state.authenticated = False
-            st.session_state.username = ""
-
-            if "auth" in st.query_params:
-                del st.query_params["auth"]
-            
-            write_audit_log(
-                st.session_state.get("username", ""),
-                get_user_role(),
-                "LOGOUT"
-            )
-            st.rerun()
+            logout()
 
 
 def get_user_role():
@@ -136,7 +177,7 @@ def get_user_role():
 
 
 def is_support_admin():
-    return get_user_role() == "support_admin"
+    return get_user_role() in ["support_admin", "admin"]
 
 
 def is_engineer_pm():
@@ -156,12 +197,24 @@ def can_clear_cache():
 
 
 def can_export_data():
-    return get_user_role() in ["support_admin", "engineer_pm"]
+    return get_user_role() in [
+        "support_admin",
+        "admin",
+        "engineer_pm"
+    ]
 
 
 def can_view_raw_data():
-    return get_user_role() in ["support_admin", "engineer_pm"]
+    return get_user_role() in [
+        "support_admin",
+        "admin",
+        "engineer_pm"
+    ]
 
 
 def can_view_assignee_workload():
-    return get_user_role() in ["support_admin", "engineer_pm"]
+    return get_user_role() in [
+        "support_admin",
+        "admin",
+        "engineer_pm"
+    ]
