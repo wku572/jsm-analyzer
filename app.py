@@ -46,6 +46,7 @@ from pages_view import resolution_time
 from pages_view import executive_intelligence
 from pages_view import historical_intelligence
 
+inject_css()
 
 st.set_page_config(
     page_title="JSM Analyzer",
@@ -54,7 +55,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-inject_css()
+
 
 if not login():
     st.stop()
