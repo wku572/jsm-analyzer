@@ -77,6 +77,6 @@ streamlit run app.py
 
 ## Author
 
-Habte Selasie (Santa)
+SIntayehu FEleke (Santa)
 
 Operational Intelligence Platform for Jira Service Management.
