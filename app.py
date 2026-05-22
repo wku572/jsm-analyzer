@@ -56,6 +56,17 @@ st.set_page_config(
 if not login():
     st.stop()
 
+if "sidebar_open" not in st.session_state:
+    st.session_state.sidebar_open = True
+
+
+def toggle_sidebar():
+    st.session_state.sidebar_open = not st.session_state.sidebar_open
+
+col1, col2 = st.columns([0.08, 0.92])
+with col1:
+    st.button("☰", key="sidebar_open_btn", on_click=toggle_sidebar)
+
 
 def map_status_category(status):
     status = str(status).strip()
@@ -107,16 +118,45 @@ if st.session_state.jira_df is None:
         st.session_state.jira_df = cached_df
         st.session_state.last_jql = "Loaded from local cache"
 
+# sidebar open/closed state
+# if "sidebar_open" not in st.session_state:
+#     st.session_state.sidebar_open = True
 
-inject_css()
+inject_css(st.session_state.sidebar_open)
 header()
 
 
+
 with st.sidebar:
+    # Navigation header + sidebar toggle (placed near Navigation)
     st.header("📌 Navigation")
+
+    
 
     role = get_user_role()
     st.caption(f"Role: **{role}**")
+
+    menu_items = [
+        "Executive Overview",
+        "Executive Intelligence",
+        "Historical Intelligence",
+        "Status & Queue Health",
+        "Aging Analysis",
+        "Organization Analysis",
+        "Priority Analysis",
+        "Issue Type Analysis",
+        "Resolution Time Analysis",
+        "Trend Analysis",
+    ]
+
+    if can_view_assignee_workload():
+        menu_items.insert(3, "Assignee Workload")
+
+    # if st.button("Collapse sidebar", key="sidebar_collapse_btn", use_container_width=True):
+    #     st.session_state.sidebar_open = False
+
+    # role = get_user_role()
+    # st.caption(f"Role: **{role}**")
 
     menu_items = [
         "Executive Overview",
@@ -139,16 +179,43 @@ with st.sidebar:
 
     analysis_view = st.radio(
         "Select analysis view",
-        menu_items
+        menu_items,
+        key="analysis_view"
     )
 
-    
     # Default values for all roles
     max_results = 2000
-    auto_refresh = True
+    auto_refresh = False
     refresh_minutes = 30
 
     if can_refresh_data():
+
+        st.divider()
+        st.header("🔄 Data Settings")
+
+        max_results = st.number_input(
+            "Maximum tickets to fetch",
+            min_value=10,
+            max_value=5000,
+            value=1000,
+            step=100,
+            key="max_results"
+        )
+
+        auto_refresh = st.checkbox(
+            "Auto-refresh Jira data",
+            value=False,
+            key="auto_refresh"
+        )
+
+        refresh_minutes = st.number_input(
+            "Refresh interval (minutes)",
+            min_value=5,
+            max_value=120,
+            value=30,
+            step=5,
+            key="refresh_minutes"
+        )
 
         st.divider()
         st.header("🔄 Data Settings")
@@ -175,6 +242,7 @@ with st.sidebar:
         )
 
 logout_button()
+
 
 
 if auto_refresh:
