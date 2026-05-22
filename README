@@ -1,28 +1,463 @@
-python -m streamlit run app.py
+# JSM Analyzer
 
-python generate_hash.py
+## Overview
 
-ADMIN_HASH
-kifiya@#1234 = $2b$12$/C3kMRzOvp3zc1DhEfqrSOHyXTODwF9Z6fRC6scc53GQWHBLRCAry
+JSM Analyzer is a cloud-hosted operational intelligence platform built for Jira Service Management (JSM). The platform provides real-time operational analytics, historical intelligence, executive dashboards, workload analysis, queue monitoring, resolution insights, and organizational reporting.
 
-ENGINEER_HASH
-engineers@#1234 = $2b$12$JvwzDQCDtLoxdkr/VUJfJ.tSIqZxJ0enbOwvsL1Fg1uf0i9KglUQ.
+The system was designed to support technical support teams, engineering teams, product managers, operational leadership, and executive stakeholders by transforming raw Jira operational data into actionable operational intelligence.
 
-SLT_HASH
-slt@#1234 = $2b$12$Vd6oCcwJO2NLI4fk.0FShO4iAXKl80.OTPZ4d5Ed34yMy7rBLbGQy
+Unlike traditional Jira dashboards that primarily display current ticket status, JSM Analyzer introduces historical snapshot analytics, operational trend intelligence, role-based executive reporting, and persistent cloud-based operational analytics.
 
+---
 
-| Feature                   | Support Admin  | Engineer / PM | SLT    |
-| ------------------------- | ------------:  | ------------: | --:    |
-| Fetch / Refresh Jira data |             ✅ |             ❌ |   ❌ |
-| Clear cache               |             ✅ |             ❌ |   ❌ |
-| Export Excel              |             ✅ |             ✅ |   ❌ |
-| Raw Data page             |             ✅ |             ✅ |   ❌ |
-| Executive Overview        |             ✅ |             ✅ |   ✅ |
-| Status / Aging / Priority |             ✅ |             ✅ |   ✅ |
-| Assignee Workload         |             ✅ |             ✅ |   ❌ |
-| Organization Analysis     |             ✅ |             ✅ |   ✅ |
-| Issue Type Analysis       |             ✅ |             ✅ |   ✅ |
-| Resolution Time           |             ✅ |             ✅ |   ✅ |
-| Trend Analysis            |             ✅ |             ✅ |   ✅ |
+# Key Features
 
+## Real-Time Jira Analytics
+
+* Live Jira Service Management integration
+* Automated ticket retrieval using Jira REST API
+* Dynamic filtering and search
+* Role-based operational dashboards
+* Export to Excel functionality
+
+---
+
+## Executive Operational Intelligence
+
+Provides leadership-level operational insights including:
+
+* Queue health score
+* Backlog risk detection
+* Operational alerts
+* High-priority ticket monitoring
+* Aging ticket intelligence
+* Organization-level operational bottlenecks
+* Assignee workload risk analysis
+
+---
+
+## Historical Intelligence
+
+Persistent historical operational analytics powered by Supabase.
+
+Capabilities include:
+
+* Historical snapshot storage
+* Queue evolution tracking
+* Backlog growth analysis
+* Organization trend monitoring
+* Operational trend analytics
+* Longitudinal operational intelligence
+
+---
+
+## Role-Based Access Control
+
+The platform supports multiple operational roles:
+
+### Support Admin
+
+Full operational access:
+
+* Load/refresh Jira data
+* Export operational data
+* Access all dashboards
+* Administrative controls
+
+### Engineer / Product Manager
+
+Operational analytics access with limited administrative privileges.
+
+### SLT Viewer
+
+Executive-level access with strategic operational dashboards and restricted operational controls.
+
+---
+
+## Authentication System
+
+* Secure login system
+* Password hashing using bcrypt
+* Session persistence
+* Protected dashboards
+* Role-based authorization
+
+---
+
+## Operational Analytics Modules
+
+### Executive Overview
+
+Provides high-level operational KPIs including:
+
+* Total tickets
+* In-progress workload
+* Pending queues
+* Resolved volume
+* Aging backlog
+* High-priority risk
+* Unassigned workload
+
+---
+
+### Executive Intelligence
+
+Strategic operational monitoring:
+
+* Queue health scoring
+* Operational alerts
+* Organization backlog analysis
+* Assignee overload detection
+* Executive operational summaries
+
+---
+
+### Status & Queue Health
+
+* Ticket distribution
+* Queue health monitoring
+* Jira workflow analysis
+* Operational state breakdowns
+
+---
+
+### Aging Analysis
+
+* Ticket aging distribution
+* Aging backlog intelligence
+* Long-open ticket analysis
+* Operational delay tracking
+
+---
+
+### Organization Analysis
+
+* Ticket distribution by organization
+* Operational demand analysis
+* Organization backlog comparison
+* Cross-organizational operational visibility
+
+---
+
+### Assignee Workload Analysis
+
+* Active workload tracking
+* Overloaded assignee detection
+* Workload balancing visibility
+* Operational ownership analysis
+
+---
+
+### Priority Analysis
+
+* High-priority queue monitoring
+* Critical operational workload
+* Priority-based risk visibility
+
+---
+
+### Issue Type Analysis
+
+* Ticket categorization analysis
+* Operational demand breakdown
+* Jira issue-type intelligence
+* Rich operational interpretations
+
+---
+
+### Resolution Time Intelligence
+
+* Average resolution time
+* Median resolution time
+* Fastest/slowest resolution analysis
+* Resolution trend insights
+* Assignee resolution performance
+* Organization resolution analysis
+
+---
+
+### Trend Analysis
+
+* Operational evolution tracking
+* Queue trend monitoring
+* Ticket flow analysis
+* Strategic operational visibility
+
+---
+
+# System Architecture
+
+## High-Level Architecture
+
+```text
+Jira Service Management
+           ↓
+      Jira REST API
+           ↓
+     Streamlit Cloud App
+           ↓
+     Supabase PostgreSQL
+           ↓
+ Historical Intelligence
+           ↓
+ Executive Dashboards
+```
+
+---
+
+# Technology Stack
+
+## Frontend
+
+* Streamlit
+* Plotly
+* HTML/CSS Custom Styling
+
+## Backend
+
+* Python
+* Pandas
+* Requests
+
+## Database
+
+* Supabase PostgreSQL
+
+## Authentication
+
+* bcrypt
+
+## Deployment
+
+* Streamlit Community Cloud
+
+## Data Export
+
+* OpenPyXL
+
+---
+
+# Database Design
+
+## Tables
+
+### current_snapshot
+
+Stores latest Jira operational dataset.
+
+### historical_snapshots
+
+Stores historical operational snapshots for trend intelligence.
+
+### audit_logs
+
+Stores operational audit logs including:
+
+* login events
+* refresh events
+* export events
+* user activity
+
+---
+
+# Installation Guide
+
+## 1. Clone Repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/jsm-analyzer.git
+cd jsm-analyzer
+```
+
+---
+
+## 2. Create Virtual Environment
+
+```bash
+python -m venv venv
+```
+
+Activate environment:
+
+### Windows
+
+```bash
+venv\Scripts\activate
+```
+
+### Linux / macOS
+
+```bash
+source venv/bin/activate
+```
+
+---
+
+## 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+# Streamlit Secrets Configuration
+
+Create:
+
+```text
+.streamlit/secrets.toml
+```
+
+Example:
+
+```toml
+[jira]
+url = "YOUR_JIRA_URL"
+email = "YOUR_EMAIL"
+api_token = "YOUR_API_TOKEN"
+
+[supabase]
+url = "YOUR_SUPABASE_URL"
+service_role_key = "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+
+[auth.users.admin]
+password_hash = "YOUR_HASH"
+role = "support_admin"
+```
+
+---
+
+# Running Locally
+
+```bash
+streamlit run app.py
+```
+
+Application URL:
+
+```text
+http://localhost:8501
+```
+
+---
+
+# Docker Deployment
+
+## Build and Run
+
+```bash
+docker compose up --build
+```
+
+---
+
+# Streamlit Cloud Deployment
+
+## Deployment Steps
+
+1. Push project to GitHub
+2. Connect GitHub repository to Streamlit Cloud
+3. Configure secrets
+4. Deploy application
+
+---
+
+# Security Considerations
+
+## Recommended Security Practices
+
+* Keep GitHub repository private
+* Never commit secrets.toml
+* Rotate Jira API tokens periodically
+* Use strong bcrypt password hashes
+* Restrict administrative accounts
+* Monitor audit logs regularly
+
+---
+
+# Operational Benefits
+
+## Support Team Benefits
+
+* Faster operational visibility
+* Reduced manual reporting
+* Improved workload visibility
+* Better queue management
+* Improved operational governance
+
+---
+
+## Engineering Team Benefits
+
+* Improved ticket visibility
+* Operational bottleneck identification
+* Better prioritization visibility
+* Historical operational context
+
+---
+
+## Executive Benefits
+
+* Strategic operational intelligence
+* Queue health monitoring
+* Operational risk visibility
+* Leadership-level reporting
+* Historical operational trends
+
+---
+
+# Future Roadmap
+
+## Planned Enhancements
+
+* SLA intelligence
+* MTTR analytics
+* Automated alerts
+* Microsoft Teams integration
+* Email notifications
+* Predictive operational analytics
+* Ticket forecasting
+* Recurring issue detection
+* AI-assisted operational insights
+* Advanced anomaly detection
+
+---
+
+# Project Structure
+
+```text
+jsm-analyzer/
+│
+├── assets/
+├── pages_view/
+├── utils/
+├── app.py
+├── jira_client.py
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+# License
+
+Internal operational platform developed for Jira Service Management analytics and operational intelligence.
+
+---
+
+# Author
+
+Developed by:
+
+Habte Selasie (Santa)
+
+JSM Operational Intelligence Platform
+
+---
+
+# Final Note
+
+JSM Analyzer is designed not merely as a reporting dashboard, but as a scalable operational intelligence platform capable of supporting operational governance, strategic decision-making, historical analytics, and executive operational visibility across Jira Service Management environments.
