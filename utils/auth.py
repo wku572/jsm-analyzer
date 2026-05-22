@@ -4,9 +4,6 @@ import bcrypt
 from utils.logger import write_audit_log
 
 
-SESSION_TOKEN = "jsm_logged_in"
-
-
 def check_password(password, hashed_password):
     try:
         return bcrypt.checkpw(
@@ -17,27 +14,12 @@ def check_password(password, hashed_password):
         return False
 
 
-def is_logged_in_from_url():
-    return (
-        st.query_params.get("auth") == SESSION_TOKEN
-        and st.query_params.get("user") is not None
-    )
-
-
 def login():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
     if "username" not in st.session_state:
         st.session_state.username = ""
-
-    if is_logged_in_from_url():
-        username = st.query_params.get("user")
-
-        st.session_state.authenticated = True
-        st.session_state.username = username
-
-        return True
 
     if st.session_state.authenticated:
         return True
@@ -107,9 +89,6 @@ def login():
                     st.session_state.authenticated = True
                     st.session_state.username = username
 
-                    st.query_params["auth"] = SESSION_TOKEN
-                    st.query_params["user"] = username
-
                     write_audit_log(
                         username,
                         role,
@@ -141,12 +120,6 @@ def logout():
 
     st.session_state.authenticated = False
     st.session_state.username = ""
-
-    if "auth" in st.query_params:
-        del st.query_params["auth"]
-
-    if "user" in st.query_params:
-        del st.query_params["user"]
 
     st.rerun()
 

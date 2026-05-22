@@ -174,7 +174,8 @@ with st.sidebar:
             step=5
         )
 
-logout_button()
+if st.button("Logout", use_container_width=True):
+    logout_button()
 
 
 if auto_refresh:
