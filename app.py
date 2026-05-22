@@ -63,9 +63,9 @@ if "sidebar_open" not in st.session_state:
 def toggle_sidebar():
     st.session_state.sidebar_open = not st.session_state.sidebar_open
 
-col1, col2 = st.columns([0.08, 0.92])
-with col1:
-    st.button("☰", key="sidebar_open_btn", on_click=toggle_sidebar)
+# col1, col2 = st.columns([0.08, 0.92])
+# with col1:
+#     st.button("☰", key="sidebar_open_btn", on_click=toggle_sidebar)
 
 
 def map_status_category(status):
