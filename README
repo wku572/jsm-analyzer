@@ -1,0 +1,28 @@
+python -m streamlit run app.py
+
+python generate_hash.py
+
+ADMIN_HASH
+kifiya@#1234 = $2b$12$/C3kMRzOvp3zc1DhEfqrSOHyXTODwF9Z6fRC6scc53GQWHBLRCAry
+
+ENGINEER_HASH
+engineers@#1234 = $2b$12$JvwzDQCDtLoxdkr/VUJfJ.tSIqZxJ0enbOwvsL1Fg1uf0i9KglUQ.
+
+SLT_HASH
+slt@#1234 = $2b$12$Vd6oCcwJO2NLI4fk.0FShO4iAXKl80.OTPZ4d5Ed34yMy7rBLbGQy
+
+
+| Feature                   | Support Admin  | Engineer / PM | SLT    |
+| ------------------------- | ------------:  | ------------: | --:    |
+| Fetch / Refresh Jira data |             ✅ |             ❌ |   ❌ |
+| Clear cache               |             ✅ |             ❌ |   ❌ |
+| Export Excel              |             ✅ |             ✅ |   ❌ |
+| Raw Data page             |             ✅ |             ✅ |   ❌ |
+| Executive Overview        |             ✅ |             ✅ |   ✅ |
+| Status / Aging / Priority |             ✅ |             ✅ |   ✅ |
+| Assignee Workload         |             ✅ |             ✅ |   ❌ |
+| Organization Analysis     |             ✅ |             ✅ |   ✅ |
+| Issue Type Analysis       |             ✅ |             ✅ |   ✅ |
+| Resolution Time           |             ✅ |             ✅ |   ✅ |
+| Trend Analysis            |             ✅ |             ✅ |   ✅ |
+

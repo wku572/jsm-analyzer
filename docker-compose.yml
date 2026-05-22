@@ -1,0 +1,12 @@
+services:
+  jsm-analyzer:
+    build: .
+    container_name: jsm-analyzer
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+    restart: unless-stopped
