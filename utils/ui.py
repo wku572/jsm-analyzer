@@ -28,7 +28,7 @@ html, body, [class*="css"] {{
 header[data-testid="stHeader"],
 .stDeployButton,
 div[data-testid="stToolbar"] {{
-    display: block !important;
+    display: none;
 }}
 
 
