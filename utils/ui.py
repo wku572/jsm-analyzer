@@ -25,14 +25,10 @@ html, body, [class*="css"] {{
     background: #ffffff;
 }}
 
-header[data-testid="stHeader"] {{
+header[data-testid="stHeader"],
+.stDeployButton,
+div[data-testid="stToolbar"] {{
     display: block !important;
-}}
-
-
-/* Hide Streamlit deploy button only */
-.stDeployButton {{
-    display: hidden !important;
 }}
 
 
