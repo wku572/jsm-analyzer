@@ -8,3 +8,4 @@ bcrypt
 pytz
 supabase
 streamlit-autorefresh
+streamlit-cookies-controller

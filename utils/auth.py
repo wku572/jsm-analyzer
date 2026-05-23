@@ -1,27 +1,106 @@
 import streamlit as st
-import bcrypt
+from supabase import create_client
+from streamlit_cookies_controller import CookieController
 
 from utils.logger import write_audit_log
 
 
-def check_password(password, hashed_password):
+USER_ROLES_TABLE = "user_roles"
+
+COOKIE_ACCESS = "jsm_access_token"
+COOKIE_REFRESH = "jsm_refresh_token"
+
+
+def get_client():
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["service_role_key"]
+    return create_client(url, key)
+
+
+def get_cookie_controller():
+    return CookieController()
+
+
+def get_role_by_email(email):
     try:
-        return bcrypt.checkpw(
-            password.encode("utf-8"),
-            hashed_password.encode("utf-8")
+        client = get_client()
+
+        response = (
+            client.table(USER_ROLES_TABLE)
+            .select("role")
+            .eq("email", email)
+            .single()
+            .execute()
         )
-    except ValueError:
-        return False
+
+        if response.data:
+            return response.data.get("role", "slt_viewer")
+
+    except Exception:
+        pass
+
+    return "slt_viewer"
 
 
-def login():
+def initialize_auth_state():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
     if "username" not in st.session_state:
         st.session_state.username = ""
 
+    if "user_email" not in st.session_state:
+        st.session_state.user_email = ""
+
+    if "user_role" not in st.session_state:
+        st.session_state.user_role = "slt_viewer"
+
+
+def restore_session_from_cookie():
+    controller = get_cookie_controller()
+
+    access_token = controller.get(COOKIE_ACCESS)
+    refresh_token = controller.get(COOKIE_REFRESH)
+
+    if not access_token or not refresh_token:
+        return False
+
+    try:
+        client = get_client()
+
+        session_response = client.auth.set_session(
+            access_token,
+            refresh_token
+        )
+
+        user = session_response.user
+
+        if not user or not user.email:
+            return False
+
+        email = user.email
+        role = get_role_by_email(email)
+
+        st.session_state.authenticated = True
+        st.session_state.user_email = email
+        st.session_state.username = email.split("@")[0]
+        st.session_state.user_role = role
+
+        return True
+
+    except Exception:
+        controller.remove(COOKIE_ACCESS)
+        controller.remove(COOKIE_REFRESH)
+        return False
+
+
+def login():
+    initialize_auth_state()
+
     if st.session_state.authenticated:
+        return True
+
+    if restore_session_from_cookie():
         return True
 
     left, center, right = st.columns([1.5, 2, 1.5])
@@ -60,15 +139,20 @@ def login():
         )
 
         with st.container(border=True):
-            username = st.text_input(
-                "Username",
-                placeholder="Enter username"
+            email = st.text_input(
+                "Email",
+                placeholder="Enter email"
             )
 
             password = st.text_input(
                 "Password",
                 type="password",
                 placeholder="Enter password"
+            )
+
+            keep_signed_in = st.checkbox(
+                "Keep me signed in",
+                value=True
             )
 
             login_btn = st.button(
@@ -78,48 +162,78 @@ def login():
             )
 
         if login_btn:
-            users = st.secrets["auth"]["users"]
+            try:
+                client = get_client()
 
-            if username in users:
-                stored_hash = users[username]["password_hash"]
+                auth_response = client.auth.sign_in_with_password(
+                    {
+                        "email": email,
+                        "password": password
+                    }
+                )
 
-                if check_password(password, stored_hash):
-                    role = users[username].get("role", "slt_viewer")
+                if auth_response.user and auth_response.session:
+                    role = get_role_by_email(email)
 
                     st.session_state.authenticated = True
-                    st.session_state.username = username
+                    st.session_state.username = email.split("@")[0]
+                    st.session_state.user_email = email
+                    st.session_state.user_role = role
+
+                    if keep_signed_in:
+                        controller = get_cookie_controller()
+
+                        controller.set(
+                            COOKIE_ACCESS,
+                            auth_response.session.access_token,
+                            max_age=60 * 60 * 12
+                        )
+
+                        controller.set(
+                            COOKIE_REFRESH,
+                            auth_response.session.refresh_token,
+                            max_age=60 * 60 * 12
+                        )
 
                     write_audit_log(
-                        username,
+                        email,
                         role,
                         "LOGIN_SUCCESS"
                     )
 
                     st.rerun()
 
-            write_audit_log(
-                username,
-                "unknown",
-                "LOGIN_FAILED"
-            )
+            except Exception:
+                write_audit_log(
+                    email,
+                    "unknown",
+                    "LOGIN_FAILED"
+                )
 
-            st.error("Invalid username or password")
+                st.error("Invalid email or password")
 
     return False
 
 
 def logout():
-    username = st.session_state.get("username", "")
+    controller = get_cookie_controller()
+
+    email = st.session_state.get("user_email", "")
     role = get_user_role()
 
     write_audit_log(
-        username,
+        email,
         role,
         "LOGOUT"
     )
 
+    controller.remove(COOKIE_ACCESS)
+    controller.remove(COOKIE_REFRESH)
+
     st.session_state.authenticated = False
     st.session_state.username = ""
+    st.session_state.user_email = ""
+    st.session_state.user_role = "slt_viewer"
 
     st.rerun()
 
@@ -128,7 +242,7 @@ def logout_button():
     with st.sidebar:
         st.divider()
         st.caption(
-            f"Logged in as: **{st.session_state.get('username', '')}**"
+            f"Logged in as: **{st.session_state.get('user_email', '')}**"
         )
 
         if st.button("Logout"):
@@ -136,17 +250,7 @@ def logout_button():
 
 
 def get_user_role():
-    username = st.session_state.get("username", "")
-
-    if not username:
-        return "slt_viewer"
-
-    users = st.secrets["auth"]["users"]
-
-    if username in users:
-        return users[username].get("role", "slt_viewer")
-
-    return "slt_viewer"
+    return st.session_state.get("user_role", "slt_viewer")
 
 
 def is_support_admin():
