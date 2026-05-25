@@ -17,6 +17,7 @@ from utils.safe_render import safe_render
 
 from utils.auth import (
     login,
+    login_modal,
     logout_button,
     get_user_role,
     can_refresh_data,
@@ -38,6 +39,7 @@ from pages_view import issue_type
 from pages_view import resolution_time
 from pages_view import executive_intelligence
 from pages_view import historical_intelligence
+from pages_view import public_dashboard
 
 
 st.set_page_config(
@@ -48,9 +50,19 @@ st.set_page_config(
 
 inject_css()
 
-if not login():
-    st.stop()
+# if not login():
+#     st.stop()
+authenticated = login()
 
+if not authenticated:
+    col1, col2 = st.columns([6, 1])
+
+    with col2:
+        if st.button("🔐 Internal Login", use_container_width=True):
+            login_modal()
+
+    public_dashboard.render()
+    st.stop()
 
 def map_status_category(status):
     status = str(status).strip()
@@ -435,6 +447,7 @@ elif analysis_view == "Raw Data":
         st.warning(
             "You do not have permission to view Raw Data."
         )
-
+# from pages_view import public_dashboard
+# public_dashboard.render()
 
 footer()
