@@ -83,32 +83,92 @@ def load_current_snapshot():
 def save_historical_snapshot(df):
     client = get_client()
 
-    records = clean_dataframe_for_json(df)
+    clean_df = df.copy()
 
-    if records:
-        payload = [{"data": record} for record in records]
-        client.table(HISTORY_TABLE).insert(payload).execute()
+    if clean_df.empty:
+        return
 
+    total_tickets = len(clean_df)
+    in_progress = len(clean_df[clean_df["Status Category"] == "In Progress"])
+    pending = len(clean_df[clean_df["Status Category"] == "Pending"])
+    resolved = len(clean_df[clean_df["Status Category"] == "Resolved"])
+
+    active_df = clean_df[
+        clean_df["Status Category"].isin(["In Progress", "Pending"])
+    ]
+
+    overdue_1_month = len(active_df[active_df["Ticket Age"] > 30])
+    overdue_2_months = len(active_df[active_df["Ticket Age"] > 60])
+
+    high_priority_open = len(
+        active_df[
+            active_df["Priority"].isin(["High", "Highest", "Critical"])
+        ]
+    )
+
+    unassigned_open = len(
+        active_df[
+            active_df["Assignee"].fillna("").str.lower().isin(["", "unassigned"])
+        ]
+    )
+
+    organization_summary = (
+        clean_df.groupby("Organizations")
+        .size()
+        .sort_values(ascending=False)
+        .head(10)
+        .to_dict()
+    )
+
+    assignee_summary = (
+        active_df.groupby("Assignee")
+        .size()
+        .sort_values(ascending=False)
+        .head(10)
+        .to_dict()
+    )
+
+    issue_type_summary = (
+        clean_df.groupby("Issue Type")
+        .size()
+        .sort_values(ascending=False)
+        .head(10)
+        .to_dict()
+    )
+
+    payload = {
+        "total_tickets": int(total_tickets),
+        "in_progress": int(in_progress),
+        "pending": int(pending),
+        "resolved": int(resolved),
+        "active_backlog": int(in_progress + pending),
+        "overdue_1_month": int(overdue_1_month),
+        "overdue_2_months": int(overdue_2_months),
+        "high_priority_open": int(high_priority_open),
+        "unassigned_open": int(unassigned_open),
+        "organization_summary": organization_summary,
+        "assignee_summary": assignee_summary,
+        "issue_type_summary": issue_type_summary
+    }
+
+    client.table(HISTORY_TABLE).insert(payload).execute()
 
 def load_historical_snapshots():
     client = get_client()
 
-    response = client.table(HISTORY_TABLE).select("*").execute()
+    response = (
+        client.table(HISTORY_TABLE)
+        .select("*")
+        .order("snapshot_timestamp", desc=False)
+        .execute()
+    )
 
     rows = response.data
 
     if not rows:
         return None
 
-    records = []
-
-    for row in rows:
-        item = row["data"]
-        item["snapshot_timestamp"] = row["snapshot_timestamp"]
-        records.append(item)
-
-    return pd.DataFrame(records)
-
+    return pd.DataFrame(rows)
 
 def clear_current_snapshot():
     client = get_client()

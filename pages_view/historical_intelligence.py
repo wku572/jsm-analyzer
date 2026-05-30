@@ -2,62 +2,23 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# from utils.database import load_historical_snapshots
 from utils.supabase_db import load_historical_snapshots
+from utils.ui import kpi_card
 
 
-PRIMARY = "#02404f"
-ACCENT = "#eb7d23"
-
-
-def card(title, value, note="", color=PRIMARY):
-    st.markdown(
-        f"""
-        <div style="
-            background:white;
-            padding:18px;
-            border-radius:18px;
-            border-left:6px solid {color};
-            box-shadow:0 8px 24px rgba(15,23,42,0.06);
-            min-height:120px;
-        ">
-            <div style="
-                color:#64748b;
-                font-size:12px;
-                font-weight:800;
-                text-transform:uppercase;
-            ">
-                {title}
-            </div>
-            <div style="
-                color:{PRIMARY};
-                font-size:34px;
-                font-weight:900;
-                margin-top:8px;
-            ">
-                {value}
-            </div>
-            <div style="
-                color:#94a3b8;
-                font-size:12px;
-                margin-top:8px;
-            ">
-                {note}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-def render(_filtered_df=None):
-
-    st.markdown("## 📈 Historical Intelligence")
+def render(data=None):
+    st.markdown("# 📈 Historical Intelligence")
 
     hist_df = load_historical_snapshots()
 
     if hist_df is None or hist_df.empty:
         st.info("No historical snapshot data available.")
+        return
+
+    hist_df = hist_df.copy()
+
+    if "snapshot_timestamp" not in hist_df.columns:
+        st.warning("Historical snapshot table is missing snapshot_timestamp.")
         return
 
     hist_df["snapshot_timestamp"] = pd.to_datetime(
@@ -66,208 +27,216 @@ def render(_filtered_df=None):
     )
 
     hist_df = hist_df.dropna(subset=["snapshot_timestamp"])
+    hist_df = hist_df.sort_values("snapshot_timestamp")
 
-    hist_df["snapshot_period"] = (
-        hist_df["snapshot_timestamp"].dt.strftime("%Y-%m-%d %H:%M")
-    )
+    if hist_df.empty:
+        st.info("No valid historical snapshot timestamps found.")
+        return
 
-    snapshot_summary = (
-        hist_df.groupby(["snapshot_period", "Status Category"])
-        .size()
-        .reset_index(name="count")
-    )
-
-    grouped = (
-        snapshot_summary.pivot_table(
-            index="snapshot_period",
-            columns="Status Category",
-            values="count",
-            fill_value=0
-        )
-        .reset_index()
-    )
-
-    grouped.columns.name = None
-
-    for col in ["In Progress", "Pending", "Resolved"]:
-        if col not in grouped.columns:
-            grouped[col] = 0
-
-    grouped["total_tickets"] = (
-        grouped["In Progress"] +
-        grouped["Pending"] +
-        grouped["Resolved"]
-    )
-
-    grouped["active_backlog"] = grouped["In Progress"] + grouped["Pending"]
-    grouped = grouped.sort_values("snapshot_period")
-
-    latest = grouped.iloc[-1]
-    snapshot_count = grouped["snapshot_period"].nunique()
+    latest = hist_df.iloc[-1]
 
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
-        card("Latest Total Tickets", int(latest["total_tickets"]), "Latest stored snapshot", PRIMARY)
+        kpi_card(
+            "Latest Total Tickets",
+            int(latest.get("total_tickets", 0)),
+            "Latest stored snapshot",
+            "📦"
+        )
 
     with c2:
-        card("Latest In Progress", int(latest["In Progress"]), "Active execution queue", "#2563eb")
+        kpi_card(
+            "Latest In Progress",
+            int(latest.get("in_progress", 0)),
+            "Active execution queue",
+            "🔵"
+        )
 
     with c3:
-        card("Latest Pending", int(latest["Pending"]), "Waiting / dependency queue", "#f59e0b")
+        kpi_card(
+            "Latest Pending",
+            int(latest.get("pending", 0)),
+            "Waiting / dependency queue",
+            "🟡"
+        )
 
     with c4:
-        card("Latest Resolved", int(latest["Resolved"]), "Completed ticket volume", "#16a34a")
-
-    st.markdown(
-        f"""
-        <div style="
-            margin-top:18px;
-            margin-bottom:22px;
-            padding:16px 18px;
-            border-radius:14px;
-            background:#f8fafc;
-            border:1px solid #e2e8f0;
-            color:#475569;
-            font-size:13px;
-            line-height:1.5;
-        ">
-            Historical Intelligence is based on stored Jira snapshots. Current available snapshot periods:
-            <b>{snapshot_count}</b>. Trend charts become more meaningful after multiple refreshes across time.
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    if snapshot_count < 2:
-        st.warning(
-            "Only one snapshot period is available. Trend lines will appear as points until more snapshots are collected."
+        kpi_card(
+            "Latest Resolved",
+            int(latest.get("resolved", 0)),
+            "Completed ticket volume",
+            "🟢"
         )
+
+    st.info(
+        f"Historical Intelligence is based on stored Jira summary snapshots. "
+        f"Current available snapshot periods: {len(hist_df)}. "
+        f"Trend charts become more meaningful after multiple refreshes across time."
+    )
 
     st.divider()
 
-    st.markdown("### 📊 Queue Evolution Over Time")
+    st.markdown("## 📊 Queue Evolution Over Time")
 
-    melted = grouped.melt(
-        id_vars="snapshot_period",
-        value_vars=["In Progress", "Pending", "Resolved"],
+    trend_df = hist_df.melt(
+        id_vars=["snapshot_timestamp"],
+        value_vars=["in_progress", "pending", "resolved"],
         var_name="Status Category",
-        value_name="Ticket Count"
+        value_name="Tickets"
     )
 
     fig = px.line(
-        melted,
-        x="snapshot_period",
-        y="Ticket Count",
+        trend_df,
+        x="snapshot_timestamp",
+        y="Tickets",
         color="Status Category",
         markers=True,
         title="Operational Queue Trend"
     )
 
-    fig.update_traces(line=dict(width=3), marker=dict(size=9))
-    fig.update_layout(
-        height=430,
-        xaxis_title="Snapshot Time",
-        yaxis_title="Tickets",
-        legend_title="Status Category",
-        xaxis_tickangle=-35,
-        margin=dict(l=20, r=20, t=55, b=90)
+    fig.update_layout(height=430)
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("## 📌 Active Backlog Growth")
+
+    fig2 = px.area(
+        hist_df,
+        x="snapshot_timestamp",
+        y="active_backlog",
+        title="Active Backlog Trend"
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    fig2.update_layout(height=380)
+    st.plotly_chart(fig2, use_container_width=True)
 
     left, right = st.columns(2)
 
     with left:
-        st.markdown("### 📌 Active Backlog Growth")
+        st.markdown("## 🚨 Aging Risk Trend")
 
-        fig2 = px.area(
-            grouped,
-            x="snapshot_period",
-            y="active_backlog",
-            title="Active Backlog Trend"
-        )
+        aging_cols = [
+            col for col in ["overdue_1_month", "overdue_2_months"]
+            if col in hist_df.columns
+        ]
 
-        fig2.update_layout(
-            height=390,
-            xaxis_title="Snapshot Time",
-            yaxis_title="Active Backlog",
-            xaxis_tickangle=-35,
-            margin=dict(l=20, r=20, t=55, b=90)
-        )
+        if aging_cols:
+            aging_df = hist_df.melt(
+                id_vars=["snapshot_timestamp"],
+                value_vars=aging_cols,
+                var_name="Aging Category",
+                value_name="Tickets"
+            )
 
-        st.plotly_chart(fig2, use_container_width=True)
+            fig3 = px.line(
+                aging_df,
+                x="snapshot_timestamp",
+                y="Tickets",
+                color="Aging Category",
+                markers=True,
+                title="Overdue Ticket Trend"
+            )
+
+            fig3.update_layout(height=380)
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.info("No aging trend data available.")
 
     with right:
-        st.markdown("### 🏦 Top Organization Trend")
+        st.markdown("## ⚠️ Risk Indicators")
 
-        org_trend = (
-            hist_df.groupby(["snapshot_period", "Organizations"])
-            .size()
-            .reset_index(name="Tickets")
-        )
+        risk_cols = [
+            col for col in ["high_priority_open", "unassigned_open"]
+            if col in hist_df.columns
+        ]
 
-        top_orgs = (
-            org_trend.groupby("Organizations")["Tickets"]
-            .sum()
-            .sort_values(ascending=False)
-            .head(5)
-            .index
-        )
+        if risk_cols:
+            risk_df = hist_df.melt(
+                id_vars=["snapshot_timestamp"],
+                value_vars=risk_cols,
+                var_name="Risk Type",
+                value_name="Tickets"
+            )
 
-        org_trend = org_trend[org_trend["Organizations"].isin(top_orgs)]
+            fig4 = px.line(
+                risk_df,
+                x="snapshot_timestamp",
+                y="Tickets",
+                color="Risk Type",
+                markers=True,
+                title="Operational Risk Trend"
+            )
 
-        fig3 = px.line(
-            org_trend,
-            x="snapshot_period",
-            y="Tickets",
-            color="Organizations",
-            markers=True,
-            title="Top Organizations Trend"
-        )
-
-        fig3.update_traces(line=dict(width=3), marker=dict(size=8))
-        fig3.update_layout(
-            height=390,
-            xaxis_title="Snapshot Time",
-            yaxis_title="Tickets",
-            xaxis_tickangle=-35,
-            margin=dict(l=20, r=20, t=55, b=90)
-        )
-
-        st.plotly_chart(fig3, use_container_width=True)
+            fig4.update_layout(height=380)
+            st.plotly_chart(fig4, use_container_width=True)
+        else:
+            st.info("No risk indicator data available.")
 
     st.divider()
 
-    st.markdown("### 📋 Historical Snapshot Table")
+    st.markdown("## 🧾 Historical Snapshot Table")
+
+    display_cols = [
+        "snapshot_timestamp",
+        "total_tickets",
+        "in_progress",
+        "pending",
+        "resolved",
+        "active_backlog",
+        "overdue_1_month",
+        "overdue_2_months",
+        "high_priority_open",
+        "unassigned_open"
+    ]
+
+    existing_cols = [
+        col for col in display_cols
+        if col in hist_df.columns
+    ]
 
     st.dataframe(
-        grouped,
-        use_container_width=True,
-        hide_index=True
+        hist_df[existing_cols].sort_values(
+            "snapshot_timestamp",
+            ascending=False
+        ),
+        use_container_width=True
     )
 
-    st.markdown("### 💡 Historical Insights")
+    st.markdown("## 💡 Historical Insights")
 
-    first = grouped.iloc[0]
+    if len(hist_df) >= 2:
+        first = hist_df.iloc[0]
+        last = hist_df.iloc[-1]
 
-    backlog_change = int(latest["active_backlog"] - first["active_backlog"])
-    resolved_change = int(latest["Resolved"] - first["Resolved"])
+        backlog_change = int(
+            last.get("active_backlog", 0)
+            - first.get("active_backlog", 0)
+        )
 
-    if backlog_change > 0:
-        backlog_direction = "increased"
-    elif backlog_change < 0:
-        backlog_direction = "decreased"
+        resolved_change = int(
+            last.get("resolved", 0)
+            - first.get("resolved", 0)
+        )
+
+        overdue_change = int(
+            last.get("overdue_1_month", 0)
+            - first.get("overdue_1_month", 0)
+        )
+
+        st.info(
+            f"""
+            Historical snapshots show that active backlog changed by **{backlog_change} tickets**
+            across the observed period.
+
+            Resolved ticket volume changed by **{resolved_change} tickets**.
+
+            Open tickets older than one month changed by **{overdue_change} tickets**.
+
+            These insights become stronger as more snapshots are collected over time.
+            """
+        )
+
     else:
-        backlog_direction = "remained stable"
-
-    st.info(
-        f"""
-        Historical snapshots show that the active backlog has **{backlog_direction}**
-        by **{abs(backlog_change)} tickets** over the observed period.
-
-        Resolved ticket volume changed by **{resolved_change} tickets**.
-
-        Since only stored snapshots are analyzed here, this page becomes more valuable as snapshots accumulate over hours, days, and weeks.
-        """
-    )
+        st.info(
+            "Only one historical snapshot is available. More refreshes over time are needed for meaningful trend analysis."
+        )
