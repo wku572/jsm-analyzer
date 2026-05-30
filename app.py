@@ -50,8 +50,6 @@ st.set_page_config(
 
 inject_css()
 
-# if not login():
-#     st.stop()
 authenticated = login()
 
 if not authenticated:
@@ -63,6 +61,7 @@ if not authenticated:
 
     public_dashboard.render()
     st.stop()
+
 
 def map_status_category(status):
     status = str(status).strip()
@@ -88,7 +87,45 @@ def map_status_category(status):
 
 
 def prepare_data(df):
+    if df is None:
+        return pd.DataFrame()
+
     df = df.copy()
+
+    if df.empty:
+        return pd.DataFrame()
+
+    df.columns = [str(col).strip() for col in df.columns]
+
+    required_defaults = {
+        "Issue Type": "Unknown",
+        "Key": "",
+        "Summary": "",
+        "Assignee": "Unassigned",
+        "Reporter": "",
+        "Priority": "Unknown",
+        "Status": "Unknown",
+        "Resolution": "",
+        "Created": pd.NaT,
+        "Updated": pd.NaT,
+        "Due date": pd.NaT,
+        "Organizations": "Unknown",
+        "Ticket Age": 0,
+        "Ticket Age Duration": "Unknown",
+        "Overdue": "Unknown"
+    }
+
+    for col, default_value in required_defaults.items():
+        if col not in df.columns:
+            df[col] = default_value
+
+    if "status" in df.columns and df["Status"].eq("Unknown").all():
+        df["Status"] = df["status"]
+
+    df["Ticket Age"] = pd.to_numeric(
+        df["Ticket Age"],
+        errors="coerce"
+    ).fillna(0)
 
     df["Status Category"] = df["Status"].apply(map_status_category)
 
@@ -146,7 +183,7 @@ if "last_jql" not in st.session_state:
 if st.session_state.jira_df is None:
     cached_df = load_current_snapshot()
 
-    if cached_df is not None:
+    if cached_df is not None and not cached_df.empty:
         st.session_state.jira_df = cached_df
         st.session_state.last_jql = "Loaded from Supabase"
 
@@ -199,7 +236,7 @@ with st.sidebar:
             "Maximum tickets to fetch",
             min_value=10,
             max_value=5000,
-            value=1000,
+            value=2000,
             step=100
         )
 
@@ -227,6 +264,8 @@ if auto_refresh and can_refresh_data():
 
 
 DEFAULT_JQL = "project = KSC ORDER BY created DESC"
+# DEFAULT_JQL = "project = KSC AND created >= -30d ORDER BY created DESC"
+# DEFAULT_JQL = "project = KSC AND created >= -365d ORDER BY created DESC"
 
 load_data = False
 clear_data = False
@@ -297,25 +336,29 @@ if load_data or auto_fetch_triggered:
                 DEFAULT_JQL,
                 max_results
             )
+            
 
             df = prepare_data(df)
 
-            st.session_state.jira_df = df
-            st.session_state.last_jql = DEFAULT_JQL
+            if df.empty:
+                st.warning("Jira data was fetched, but no valid ticket records were found.")
+            else:
+                st.session_state.jira_df = df
+                st.session_state.last_jql = DEFAULT_JQL
 
-            save_current_snapshot(df)
-            save_historical_snapshot(df)
+                save_current_snapshot(df)
+                save_historical_snapshot(df)
 
-            write_audit_log(
-                st.session_state.get("user_email", ""),
-                get_user_role(),
-                "JIRA_REFRESH",
-                f"tickets={len(df)}"
-            )
+                write_audit_log(
+                    st.session_state.get("user_email", ""),
+                    get_user_role(),
+                    "JIRA_REFRESH",
+                    f"tickets={len(df)}"
+                )
 
-            st.success(
-                f"Fetched and saved {len(df)} tickets successfully."
-            )
+                st.success(
+                    f"Fetched and saved {len(df)} tickets successfully."
+                )
 
         except Exception as e:
             st.error("Failed to fetch Jira data.")
@@ -332,6 +375,13 @@ if df is None:
 
 
 df = prepare_data(df)
+
+if df.empty:
+    st.warning(
+        "Loaded data is empty or missing required Jira fields. Please ask Support Admin to refresh Jira data."
+    )
+    st.stop()
+
 
 st.caption(
     f"✅ Loaded dataset: **{len(df)} tickets** | Source: KSC Jira Service Management"
@@ -447,7 +497,5 @@ elif analysis_view == "Raw Data":
         st.warning(
             "You do not have permission to view Raw Data."
         )
-# from pages_view import public_dashboard
-# public_dashboard.render()
 
 footer()
