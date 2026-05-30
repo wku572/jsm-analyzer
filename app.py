@@ -56,7 +56,7 @@ if not authenticated:
     col1, col2 = st.columns([6, 1])
 
     with col2:
-        if st.button("🔐 Internal Login", use_container_width=True):
+        if st.button("🔐 Internal Login", width="stretch"):
             login_modal()
 
     public_dashboard.render()
@@ -281,13 +281,13 @@ if can_refresh_data() and can_clear_cache():
             load_data = st.button(
                 "Fetch / Refresh",
                 type="primary",
-                use_container_width=True
+                width="stretch"
             )
 
         with col2:
             clear_data = st.button(
                 "Clear Data",
-                use_container_width=True
+                width="stretch"
             )
 
         with col3:
