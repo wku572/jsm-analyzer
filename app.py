@@ -44,7 +44,7 @@ from pages_view import public_dashboard
 
 st.set_page_config(
     page_title="JSM Analyzer",
-    page_icon="📊",
+    page_icon="assets/favicon.ico",
     layout="wide"
 )
 
@@ -192,7 +192,7 @@ header()
 
 
 with st.sidebar:
-    st.header("📌 Navigation")
+    st.header(" Navigation")
 
     role = get_user_role()
     st.caption(f"Role: **{role}**")
