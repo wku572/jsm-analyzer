@@ -2,10 +2,9 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 
-# Brand colors
-PRIMARY = "#0B4F63"     # Kifiya dark teal
-ACCENT = "#F28C28"      # orange
-SUCCESS = "#22C55E"     # green
+PRIMARY = "#0B4F63"
+ACCENT = "#F28C28"
+SUCCESS = "#22C55E"
 
 STATUS_COLORS = {
     "In Progress": PRIMARY,
@@ -13,11 +12,12 @@ STATUS_COLORS = {
     "Resolved": SUCCESS
 }
 
+STATUS_ORDER = ["In Progress", "Pending", "Resolved"]
 LOCAL_TZ = "Africa/Addis_Ababa"
 
 
 def prepare_status_columns(summary_df):
-    for col in ["In Progress", "Pending", "Resolved"]:
+    for col in STATUS_ORDER:
         if col not in summary_df.columns:
             summary_df[col] = 0
 
@@ -28,6 +28,22 @@ def prepare_status_columns(summary_df):
     )
 
     return summary_df
+
+
+def complete_trend_periods(trend_summary, periods):
+    full_index = pd.MultiIndex.from_product(
+        [periods, STATUS_ORDER],
+        names=["Trend Period", "Status Category"]
+    )
+
+    trend_summary = (
+        trend_summary
+        .set_index(["Trend Period", "Status Category"])
+        .reindex(full_index, fill_value=0)
+        .reset_index()
+    )
+
+    return trend_summary
 
 
 def render(filtered_df):
@@ -42,6 +58,10 @@ def render(filtered_df):
 
     df["Created"] = pd.to_datetime(df["Created"], errors="coerce", utc=True)
     df = df.dropna(subset=["Created"])
+
+    if df.empty:
+        st.info("No valid created dates found.")
+        return
 
     df["Created Local"] = df["Created"].dt.tz_convert(LOCAL_TZ)
     df["Created Date"] = df["Created Local"].dt.normalize()
@@ -79,9 +99,6 @@ def render(filtered_df):
         st.warning(f"No tickets found for {period_label}.")
         return
 
-    # -------------------------
-    # STATUS SUMMARY
-    # -------------------------
     st.subheader(f"📊 {period_label} Status Summary")
 
     status_summary = (
@@ -97,21 +114,26 @@ def render(filtered_df):
         color="Status Category",
         text="Ticket Count",
         title=f"{period_label} Tickets by Status Category",
-        color_discrete_map=STATUS_COLORS
+        color_discrete_map=STATUS_COLORS,
+        category_orders={"Status Category": STATUS_ORDER}
     )
-    fig.update_traces(textposition="outside")
-    st.plotly_chart(fig, use_container_width=True)
 
-    # -------------------------
-    # MONTHLY / YEARLY TREND LINE
-    # -------------------------
+    fig.update_traces(textposition="outside")
+    fig.update_layout(height=420)
+    st.plotly_chart(fig, width="stretch")
+
     if trend_level in ["Monthly", "Yearly"]:
+
+        st.subheader(f"📈 {trend_level} Movement Over Time")
 
         trend_summary = (
             df.groupby(["Trend Period", "Status Category"])
             .size()
             .reset_index(name="Ticket Count")
         )
+
+        periods = sorted(df["Trend Period"].dropna().unique())
+        trend_summary = complete_trend_periods(trend_summary, periods)
 
         fig = px.line(
             trend_summary,
@@ -120,15 +142,17 @@ def render(filtered_df):
             color="Status Category",
             markers=True,
             title=f"{trend_level} Ticket Trend by Status Category",
-            color_discrete_map=STATUS_COLORS
+            color_discrete_map=STATUS_COLORS,
+            category_orders={"Status Category": STATUS_ORDER}
         )
 
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(
+            height=450,
+            xaxis_tickangle=-45
+        )
 
-    # -------------------------
-    # ORGANIZATION ANALYSIS
-    # -------------------------
+        st.plotly_chart(fig, width="stretch")
+
     st.subheader(f"🏦 {period_label} Organization Analysis")
 
     org_summary = df.pivot_table(
@@ -140,30 +164,30 @@ def render(filtered_df):
     ).reset_index()
 
     org_summary = prepare_status_columns(org_summary)
-    org_summary = org_summary.sort_values("Total", ascending=False)
+    org_summary = org_summary.sort_values("Total", ascending=False).head(15)
 
     fig = px.bar(
         org_summary,
         x="Organizations",
-        y=["In Progress", "Pending", "Resolved"],
+        y=STATUS_ORDER,
         title=f"{period_label} Tickets by Organization",
         barmode="group",
         color_discrete_map=STATUS_COLORS
     )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
+
+    fig.update_layout(
+        height=480,
+        xaxis_tickangle=-45
+    )
+
+    st.plotly_chart(fig, width="stretch")
 
     st.dataframe(
-        org_summary[
-            ["Organizations", "In Progress", "Pending", "Resolved", "Total"]
-        ],
-        use_container_width=True,
+        org_summary[["Organizations", "In Progress", "Pending", "Resolved", "Total"]],
+        width="stretch",
         hide_index=True
     )
 
-    # -------------------------
-    # ASSIGNEE ANALYSIS
-    # -------------------------
     st.subheader(f"👤 {period_label} Assignee Analysis")
 
     assignee_summary = df.pivot_table(
@@ -175,30 +199,30 @@ def render(filtered_df):
     ).reset_index()
 
     assignee_summary = prepare_status_columns(assignee_summary)
-    assignee_summary = assignee_summary.sort_values("Total", ascending=False)
+    assignee_summary = assignee_summary.sort_values("Total", ascending=False).head(15)
 
     fig = px.bar(
         assignee_summary,
         x="Assignee",
-        y=["In Progress", "Pending", "Resolved"],
+        y=STATUS_ORDER,
         title=f"{period_label} Tickets by Assignee",
         barmode="group",
         color_discrete_map=STATUS_COLORS
     )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
+
+    fig.update_layout(
+        height=480,
+        xaxis_tickangle=-45
+    )
+
+    st.plotly_chart(fig, width="stretch")
 
     st.dataframe(
-        assignee_summary[
-            ["Assignee", "In Progress", "Pending", "Resolved", "Total"]
-        ],
-        use_container_width=True,
+        assignee_summary[["Assignee", "In Progress", "Pending", "Resolved", "Total"]],
+        width="stretch",
         hide_index=True
     )
 
-    # -------------------------
-    # PAGINATED TICKET LIST
-    # -------------------------
     st.subheader(f"📄 {period_label} Ticket List")
 
     ticket_columns = [
@@ -246,13 +270,10 @@ def render(filtered_df):
 
     st.dataframe(
         ticket_data.iloc[start_idx:end_idx],
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
 
-    # -------------------------
-    # INTERPRETATION
-    # -------------------------
     top_org = org_summary.iloc[0]["Organizations"]
     top_org_total = org_summary.iloc[0]["Total"]
 
@@ -265,8 +286,10 @@ def render(filtered_df):
         f"""
         For **{period_label}**, the highest organization ticket volume is from 
         **{top_org}** with **{top_org_total} tickets**.  
+
         The highest assignee workload is **{top_assignee}** with 
         **{top_assignee_total} tickets**.  
-        This view helps identify short-term workload pressure and long-term ticket movement by organization and owner.
+
+        Monthly and yearly views help identify ticket movement patterns over time, while today and weekly views help monitor short-term operational pressure.
         """
     )
