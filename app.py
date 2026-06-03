@@ -234,7 +234,7 @@ with st.sidebar:
 
         max_results = st.number_input(
             "Maximum tickets to fetch",
-            min_value=10,
+            min_value=100,
             max_value=5000,
             value=2000,
             step=100

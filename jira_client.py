@@ -119,7 +119,7 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
 
         if not issues:
             raise Exception(
-                f"Jira returned 0 issues. JQL: {jql}. Response: {str(data)[:1000]}"
+                f"Jira returned 0 issues. JQL: {jql}. Response: {str(data)[:2000]}"
             )
         # if not issues:
         #     break
