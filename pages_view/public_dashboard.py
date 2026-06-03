@@ -17,6 +17,9 @@ STATUS_COLORS = {
     "Pending": ACCENT,
     "Resolved": SUCCESS
 }
+
+SUMMARY_COLORS = PRIMARY
+
 LOCAL_TZ = "Africa/Addis_Ababa"
 
 
@@ -278,8 +281,7 @@ def render():
             y="Tickets",
             text="Tickets",
             title="Top Organizations by Ticket Volume",
-            color="Status Category",
-            color_discrete_map=STATUS_COLORS
+            color_discrete_sequence=[SUMMARY_COLORS]
         )
 
         fig2.update_traces(textposition="outside")
@@ -311,7 +313,8 @@ def render():
             x="Assignee",
             y="Active Tickets",
             text="Active Tickets",
-            title="Top Active Workload by Assignee"
+            title="Top Active Workload by Assignee",
+            color_discrete_sequence=[SUMMARY_COLORS]
         )
 
         fig3.update_traces(textposition="outside")
@@ -339,7 +342,8 @@ def render():
             x="Issue Type",
             y="Tickets",
             text="Tickets",
-            title="Top Issue Types"
+            title="Top Issue Types",
+            color_discrete_sequence=[SUMMARY_COLORS]
         )
 
         fig4.update_traces(textposition="outside")
