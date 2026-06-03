@@ -14,6 +14,7 @@ STATUS_COLORS = {
     "Resolved": SUCCESS
 }
 
+AGE_COLORS = PRIMARY
 
 def render(filtered_df):
 
@@ -114,7 +115,8 @@ def render(filtered_df):
             x="Ticket Age Duration",
             y="Open Tickets",
             text="Open Tickets",
-            title="Open Ticket Aging Distribution"
+            title="Open Ticket Aging Distribution",
+            color_discrete_sequence=[AGE_COLORS]
         )
 
         fig.update_traces(textposition="outside")
