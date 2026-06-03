@@ -5,6 +5,26 @@ import plotly.express as px
 from utils.supabase_db import load_historical_snapshots
 from utils.ui import kpi_card
 
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
+
+STATUS_COLORS = {
+    "in_progress": PRIMARY,
+    "pending": ACCENT,
+    "resolved": SUCCESS
+}
+
+ACTIVE_BACKLOG_COLOR = ACCENT
+AGING_COLORS = {
+    "overdue_1_month": "#EAB308",  # amber
+    "overdue_2_months": "#DC2626"  # red
+}
+RISK_COLORS = {
+    "high_priority_open": "#F59E0B",  # orange-500
+    "unassigned_open": "#EF4444"      # red-500
+}
 
 def render(data=None):
     st.markdown("# 📈 Historical Intelligence")
@@ -92,7 +112,8 @@ def render(data=None):
         y="Tickets",
         color="Status Category",
         markers=True,
-        title="Operational Queue Trend"
+        title="Operational Queue Trend",
+        color_discrete_map=STATUS_COLORS
     )
 
     fig.update_layout(height=430)
@@ -104,7 +125,8 @@ def render(data=None):
         hist_df,
         x="snapshot_timestamp",
         y="active_backlog",
-        title="Active Backlog Trend"
+        title="Active Backlog Trend",
+        color_discrete_sequence=[ACTIVE_BACKLOG_COLOR]
     )
 
     fig2.update_layout(height=380)
@@ -134,7 +156,8 @@ def render(data=None):
                 y="Tickets",
                 color="Aging Category",
                 markers=True,
-                title="Overdue Ticket Trend"
+                title="Overdue Ticket Trend",
+                color_discrete_map=AGING_COLORS
             )
 
             fig3.update_layout(height=380)
@@ -164,7 +187,8 @@ def render(data=None):
                 y="Tickets",
                 color="Risk Type",
                 markers=True,
-                title="Operational Risk Trend"
+                title="Operational Risk Trend",
+                color_discrete_map=RISK_COLORS
             )
 
             fig4.update_layout(height=380)

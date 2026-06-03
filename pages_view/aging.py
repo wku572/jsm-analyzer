@@ -2,6 +2,12 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
+
+STATUS_COLORS = PRIMARY
 
 def render(filtered_df):
 
@@ -36,8 +42,8 @@ def render(filtered_df):
         aging_summary,
         x="Ticket Age Duration",
         y="Open Tickets",
-        text="Open Tickets",
-        title="Open Tickets by Aging Bucket"
+        title="Open Tickets by Aging Bucket",
+        color_discrete_sequence=[STATUS_COLORS]
     )
     fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)

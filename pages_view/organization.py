@@ -1,6 +1,16 @@
 import streamlit as st
 import plotly.express as px
 
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
+
+STATUS_COLORS = {
+    "In Progress": PRIMARY,
+    "Pending": ACCENT,
+    "Resolved": SUCCESS
+}
 
 def render(filtered_df):
 
@@ -43,7 +53,8 @@ def render(filtered_df):
         x="Organizations",
         y=["In Progress", "Pending", "Resolved"],
         title="Organization Tickets by Status Category",
-        barmode="group"
+        barmode="group",
+        color_discrete_map=STATUS_COLORS
     )
 
     fig.update_layout(xaxis_tickangle=-45)

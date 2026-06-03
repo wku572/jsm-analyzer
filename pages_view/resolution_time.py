@@ -1,6 +1,12 @@
 import streamlit as st
 import plotly.express as px
 
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
+
+STATUS_COLORS = PRIMARY
 
 def resolution_kpi_card(title, value, note, border_color):
 
@@ -114,7 +120,8 @@ def render(filtered_df):
         x="Issue Type",
         y="Avg_Resolution_Days",
         text="Avg_Resolution_Days",
-        title="Average Resolution Time by Issue Type"
+        title="Average Resolution Time by Issue Type",
+        color_discrete_sequence=[STATUS_COLORS]
     )
 
     fig.update_traces(textposition="outside")
@@ -146,7 +153,8 @@ def render(filtered_df):
         x="Assignee",
         y="Avg_Resolution_Days",
         text="Avg_Resolution_Days",
-        title="Average Resolution Time by Assignee"
+        title="Average Resolution Time by Assignee",
+        color_discrete_sequence=[STATUS_COLORS]
     )
 
     fig2.update_layout(xaxis_tickangle=-45)
@@ -179,7 +187,8 @@ def render(filtered_df):
         x="Organizations",
         y="Avg_Resolution_Days",
         text="Avg_Resolution_Days",
-        title="Average Resolution Time by Organization"
+        title="Average Resolution Time by Organization",
+        color_discrete_sequence=[STATUS_COLORS]
     )
 
     fig3.update_layout(xaxis_tickangle=-45)

@@ -2,9 +2,12 @@ import streamlit as st
 import plotly.express as px
 
 
-PRIMARY = "#02404f"
-ACCENT = "#eb7d23"
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
 
+STATUS_COLORS = PRIMARY
 
 def calculate_queue_health(df):
     active_df = df[df["Status Category"] != "Resolved"]
@@ -287,7 +290,8 @@ def render(df):
             x="Organizations",
             y="Open_Tickets",
             text="Open_Tickets",
-            title="Top Organizations by Active Backlog"
+            title="Top Organizations by Active Backlog",
+            color_discrete_sequence=[STATUS_COLORS]
         )
 
         fig.update_traces(textposition="outside")
@@ -315,7 +319,8 @@ def render(df):
             x="Assignee",
             y="Active_Tickets",
             text="Active_Tickets",
-            title="Top Assignees by Active Workload"
+            title="Top Assignees by Active Workload",
+            color_discrete_sequence=[STATUS_COLORS]
         )
 
         fig2.update_traces(textposition="outside")

@@ -2,6 +2,16 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
+
+STATUS_COLORS = {
+    "In Progress": PRIMARY,
+    "Pending": ACCENT,
+    "Resolved": SUCCESS
+}
 
 LOCAL_TZ = "Africa/Addis_Ababa"
 
@@ -86,7 +96,8 @@ def render(filtered_df):
         y="Ticket Count",
         color="Status Category",
         text="Ticket Count",
-        title=f"{period_label} Tickets by Status Category"
+        title=f"{period_label} Tickets by Status Category",
+        color_discrete_map=STATUS_COLORS
     )
     fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
@@ -108,7 +119,8 @@ def render(filtered_df):
             y="Ticket Count",
             color="Status Category",
             markers=True,
-            title=f"{trend_level} Ticket Trend by Status Category"
+            title=f"{trend_level} Ticket Trend by Status Category",
+            color_discrete_map=STATUS_COLORS
         )
 
         fig.update_layout(xaxis_tickangle=-45)
@@ -135,7 +147,8 @@ def render(filtered_df):
         x="Organizations",
         y=["In Progress", "Pending", "Resolved"],
         title=f"{period_label} Tickets by Organization",
-        barmode="group"
+        barmode="group",
+        color_discrete_map=STATUS_COLORS
     )
     fig.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
@@ -169,7 +182,8 @@ def render(filtered_df):
         x="Assignee",
         y=["In Progress", "Pending", "Resolved"],
         title=f"{period_label} Tickets by Assignee",
-        barmode="group"
+        barmode="group",
+        color_discrete_map=STATUS_COLORS
     )
     fig.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)

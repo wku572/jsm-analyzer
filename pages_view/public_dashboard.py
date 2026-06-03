@@ -7,8 +7,16 @@ import pytz
 from utils.supabase_db import load_current_snapshot
 
 
-PRIMARY = "#02404f"
-ACCENT = "#eb7d23"
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
+
+STATUS_COLORS = {
+    "In Progress": PRIMARY,
+    "Pending": ACCENT,
+    "Resolved": SUCCESS
+}
 LOCAL_TZ = "Africa/Addis_Ababa"
 
 
@@ -241,7 +249,9 @@ def render():
             names="Status Category",
             values="Tickets",
             hole=0.45,
-            title="Ticket Status Distribution"
+            title="Ticket Status Distribution",
+            color="Status Category",
+            color_discrete_map=STATUS_COLORS
         )
 
         fig.update_layout(
@@ -267,7 +277,9 @@ def render():
             x="Organizations",
             y="Tickets",
             text="Tickets",
-            title="Top Organizations by Ticket Volume"
+            title="Top Organizations by Ticket Volume",
+            color="Status Category",
+            color_discrete_map=STATUS_COLORS
         )
 
         fig2.update_traces(textposition="outside")

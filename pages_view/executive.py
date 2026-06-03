@@ -3,6 +3,17 @@ import plotly.express as px
 import pandas as pd
 from utils.ui import kpi_card
 
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+SUCCESS = "#22C55E"     # green
+
+STATUS_COLORS = {
+    "In Progress": PRIMARY,
+    "Pending": ACCENT,
+    "Resolved": SUCCESS
+}
+
 
 def render(filtered_df):
 
@@ -68,8 +79,10 @@ def render(filtered_df):
             status_summary,
             names="Status Category",
             values="Count",
-            hole=0.45,
-            title="Ticket Distribution by Status Category"
+            hole=0.5,
+            title="Ticket Distribution by Status Category",
+            color="Status Category",
+            color_discrete_map=STATUS_COLORS
         )
 
         st.plotly_chart(fig, use_container_width=True)

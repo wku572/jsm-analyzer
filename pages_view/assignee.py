@@ -1,7 +1,16 @@
 import streamlit as st
 import plotly.express as px
 
+from pages_view.historical_intelligence import STATUS_COLORS
 
+# Brand colors
+PRIMARY = "#0B4F63"     # Kifiya dark teal
+ACCENT = "#F28C28"      # orange
+
+STATUS_COLORS = {
+    "In_Progress": PRIMARY,
+    "Pending": ACCENT
+}
 def render(filtered_df):
 
     st.subheader("👤 Assignee Workload Analysis")
@@ -32,7 +41,8 @@ def render(filtered_df):
         x="Assignee",
         y=["In_Progress", "Pending"],
         title="Open Tickets by Assignee",
-        barmode="stack"
+        barmode="stack",
+        color_discrete_map=STATUS_COLORS
     )
 
     fig.update_layout(xaxis_tickangle=-45)
