@@ -68,14 +68,36 @@ def save_current_snapshot(df):
 def load_current_snapshot():
     client = get_client()
 
-    response = client.table(CURRENT_TABLE).select("data").execute()
+    all_rows = []
+    batch_size = 1000
+    start = 0
 
-    rows = response.data
+    while True:
+        end = start + batch_size - 1
 
-    if not rows:
+        response = (
+            client.table(CURRENT_TABLE)
+            .select("data")
+            .range(start, end)
+            .execute()
+        )
+
+        rows = response.data
+
+        if not rows:
+            break
+
+        all_rows.extend(rows)
+
+        if len(rows) < batch_size:
+            break
+
+        start += batch_size
+
+    if not all_rows:
         return None
 
-    records = [row["data"] for row in rows]
+    records = [row["data"] for row in all_rows]
 
     return pd.DataFrame(records)
 
