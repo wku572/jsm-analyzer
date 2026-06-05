@@ -40,11 +40,15 @@ from pages_view import resolution_time
 from pages_view import executive_intelligence
 from pages_view import historical_intelligence
 from pages_view import public_dashboard
+from pages_view import label_analysis
 
+from PIL import Image
+
+favicon = Image.open("assets/favicon.ico")
 
 st.set_page_config(
     page_title="JSM Analyzer",
-    page_icon="assets/favicon.ico",
+    page_icon=favicon,
     layout="wide"
 )
 
@@ -105,6 +109,7 @@ def prepare_data(df):
         "Reporter": "",
         "Priority": "Unknown",
         "Status": "Unknown",
+        "Labels": "Unlabeled",
         "Resolution": "",
         "Created": pd.NaT,
         "Updated": pd.NaT,
@@ -192,7 +197,7 @@ header()
 
 
 with st.sidebar:
-    st.header(" Navigation")
+    st.header("Navigation")
 
     role = get_user_role()
     st.caption(f"Role: **{role}**")
@@ -208,6 +213,7 @@ with st.sidebar:
         "Aging Analysis",
         "Organization Analysis",
         "Priority Analysis",
+        "Label / Category Analysis",
         "Issue Type Analysis",
         "Resolution Time Analysis",
         "Trend Analysis",
@@ -230,7 +236,7 @@ with st.sidebar:
 
     if can_refresh_data():
         st.divider()
-        st.header("🔄 Data Settings")
+        st.header("Data Settings")
 
         max_results = st.number_input(
             "Maximum tickets to fetch",
@@ -462,6 +468,12 @@ elif analysis_view == "Priority Analysis":
     safe_render(
         "Priority Analysis",
         priority.render,
+        filtered_df
+    )
+elif analysis_view == "Label / Category Analysis":
+    safe_render(
+        "Label / Category Analysis",
+        label_analysis.render,
         filtered_df
     )
 

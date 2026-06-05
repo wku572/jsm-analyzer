@@ -10,7 +10,7 @@ def render(filtered_df):
 
     preferred_columns = [
         "Issue Type", "Key", "Summary", "Assignee", "Reporter",
-        "Priority", "Status", "Status Category", "Resolution", "Resolved Date",
+        "Priority", "Status", "Status Category", "Labels", "Resolution", "Resolved Date",
         "Created", "Updated", "Due date", "Organizations",
         "Year", "Month", "Ticket Age",
         "Ticket Age Duration", "Overdue"

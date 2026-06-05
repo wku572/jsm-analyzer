@@ -80,6 +80,7 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
         "resolution",
         "resolutiondate",
         "issuetype",
+        "labels",
         "customfield_10002"
     ]
 
@@ -172,6 +173,7 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
             "Priority": fields_data.get("priority", {}).get("name") if fields_data.get("priority") else "None",
             "Status": status,
             "Status Category": map_status_category(status),
+            "Labels": ", ".join(fields_data.get("labels", [])) if fields_data.get("labels") else "Unlabeled",
             "Resolution": fields_data.get("resolution", {}).get("name") if fields_data.get("resolution") else "",
             "Resolved Date": fields_data.get("resolutiondate"),
             "Created": created_dt,
