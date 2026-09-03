@@ -43,6 +43,31 @@ def classify_age_duration(ticket_age):
         return "> 2 months"
 
 
+def _adf_to_text(node):
+    if node is None:
+        return ""
+
+    if isinstance(node, str):
+        return node
+
+    if isinstance(node, list):
+        return " ".join(_adf_to_text(item) for item in node)
+
+    if isinstance(node, dict):
+        if node.get("type") == "text":
+            return node.get("text", "")
+        return " ".join(_adf_to_text(child) for child in node.get("content", []))
+
+    return ""
+
+
+def _extract_escalation_level(fields_data):
+    escalation_field = fields_data.get("customfield_11144")
+    if isinstance(escalation_field, dict):
+        return escalation_field.get("value")
+    return None
+
+
 def get_jira_secret(name):
     if name in st.secrets:
         return st.secrets[name]
@@ -53,6 +78,35 @@ def get_jira_secret(name):
             return st.secrets["jira"][key]
 
     return None
+
+
+def update_issue_priority(issue_key: str, priority_name: str):
+    base_url = get_jira_secret("JIRA_BASE_URL")
+    email = get_jira_secret("JIRA_EMAIL")
+    api_token = get_jira_secret("JIRA_API_TOKEN")
+
+    if not base_url or not email or not api_token:
+        raise ValueError(
+            "Missing Jira secrets. Please set JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN."
+        )
+
+    base_url = base_url.rstrip("/")
+    url = f"{base_url}/rest/api/3/issue/{issue_key}"
+
+    response = requests.put(
+        url,
+        json={"fields": {"priority": {"name": priority_name}}},
+        auth=HTTPBasicAuth(email, api_token),
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+    )
+
+    if response.status_code not in (200, 204):
+        raise Exception(
+            f"Jira priority update failed for {issue_key}. Status: {response.status_code}. Response: {response.text[:500]}"
+        )
 
 
 def fetch_jira_issues(jql: str, max_results: int = 5000):
@@ -81,7 +135,10 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
         "resolutiondate",
         "issuetype",
         "labels",
-        "customfield_10002"
+        "customfield_10002",
+        "description",
+        "comment",
+        "customfield_11144"
     ]
 
     all_issues = []
@@ -164,6 +221,9 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
         else:
             org_names = ""
 
+        comments = fields_data.get("comment", {}).get("comments", [])
+        last_comment = _adf_to_text(comments[-1].get("body")) if comments else ""
+
         rows.append({
             "Issue Type": fields_data.get("issuetype", {}).get("name"),
             "Key": issue.get("key"),
@@ -180,6 +240,9 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
             "Updated": updated_dt,
             "Due date": fields_data.get("duedate"),
             "Organizations": org_names,
+            "Description": _adf_to_text(fields_data.get("description")),
+            "Last Comment": last_comment,
+            "Escalation Level": _extract_escalation_level(fields_data),
             "Year": created_dt.year if pd.notna(created_dt) else "",
             "Month": created_dt.strftime("%B") if pd.notna(created_dt) else "",
             "Ticket Age": ticket_age,
