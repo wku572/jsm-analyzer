@@ -83,9 +83,55 @@ token_uri = "https://oauth2.googleapis.com/token"
 
 ### 3. Set up the Supabase schema
 
-Some tables (`current_snapshot`, `historical_snapshots`, `user_roles`,
-`audit_logs`) are assumed to already exist from earlier setup. Run the
-following in the Supabase SQL editor for the features added since:
+#### Core tables
+
+These back the base app (snapshot loading, audit logging, user roles) and
+are expected to already exist before you set up any of the features below:
+
+```sql
+create table if not exists public.current_snapshot (
+    id bigint generated always as identity primary key,
+    data jsonb not null,
+    updated_at timestamptz default now()
+);
+
+create table if not exists public.historical_snapshots (
+    id bigint generated always as identity primary key,
+    snapshot_timestamp timestamptz default now(),
+    total_tickets integer,
+    in_progress integer,
+    pending integer,
+    resolved integer,
+    active_backlog integer,
+    overdue_1_month integer,
+    overdue_2_months integer,
+    high_priority_open integer,
+    unassigned_open integer,
+    organization_summary jsonb,
+    assignee_summary jsonb,
+    issue_type_summary jsonb
+);
+
+create table if not exists public.user_roles (
+    id bigint generated always as identity primary key,
+    email text not null unique,
+    role text not null,
+    created_at timestamptz default now()
+);
+
+create table if not exists public.audit_logs (
+    id bigint generated always as identity primary key,
+    created_at timestamptz default now(),
+    username text,
+    role text,
+    action text,
+    details text
+);
+```
+
+#### Feature migrations
+
+Run the following in the Supabase SQL editor for the features added since:
 
 ```sql
 -- GA4 activity baseline
