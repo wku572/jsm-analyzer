@@ -24,7 +24,8 @@ from utils.auth import (
     can_clear_cache,
     can_export_data,
     can_view_raw_data,
-    can_view_assignee_workload
+    can_view_assignee_workload,
+    is_support_admin
 )
 
 from pages_view import executive
@@ -41,6 +42,9 @@ from pages_view import executive_intelligence
 from pages_view import historical_intelligence
 from pages_view import public_dashboard
 from pages_view import label_analysis
+from pages_view import incident_impact
+from pages_view import ga4_activity
+from pages_view import support_triage
 
 from PIL import Image
 
@@ -216,11 +220,16 @@ with st.sidebar:
         "Label / Category Analysis",
         "Issue Type Analysis",
         "Resolution Time Analysis",
+        "Incident Impact Assessment",
+        "GA4 Activity Baseline",
         "Trend Analysis",
     ]
 
     if can_view_assignee_workload():
         menu_items.insert(3, "Assignee Workload")
+
+    if is_support_admin():
+        menu_items.append("Support Triage")
 
     if can_view_raw_data():
         menu_items.append("Raw Data")
@@ -491,12 +500,38 @@ elif analysis_view == "Resolution Time Analysis":
         filtered_df
     )
 
+elif analysis_view == "Incident Impact Assessment":
+    safe_render(
+        "Incident Impact Assessment",
+        incident_impact.render,
+        filtered_df
+    )
+
+elif analysis_view == "GA4 Activity Baseline":
+    safe_render(
+        "GA4 Activity Baseline",
+        ga4_activity.render,
+        filtered_df
+    )
+
 elif analysis_view == "Trend Analysis":
     safe_render(
         "Trend Analysis",
         trend_analysis.render,
         filtered_df
     )
+
+elif analysis_view == "Support Triage":
+    if is_support_admin():
+        safe_render(
+            "Support Triage",
+            support_triage.render,
+            filtered_df
+        )
+    else:
+        st.warning(
+            "You do not have permission to view Support Triage."
+        )
 
 elif analysis_view == "Raw Data":
     if can_view_raw_data():
