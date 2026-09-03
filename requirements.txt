@@ -9,3 +9,6 @@ pytz
 supabase
 streamlit-autorefresh
 streamlit-cookies-controller
+google-analytics-data
+anthropic
+chromadb
