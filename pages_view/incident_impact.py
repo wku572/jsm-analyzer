@@ -738,8 +738,8 @@ def _render_step_enter_impact(baseline_display):
 def _render_step_save(issue_key, organization, baseline_display, current_priority):
     st.markdown("### Step 4: Save Assessment")
 
-    expected_users = int(st.session_state.get("incident_expected_users", 0) or 0)
-    affected_users = int(st.session_state.get("incident_affected_users", 0) or 0)
+    expected_users = int(st.session_state.get("incident_locked_expected_users", 0) or 0)
+    affected_users = int(st.session_state.get("incident_locked_affected_users", 0) or 0)
     impact_percentage, suggested_severity = _compute_impact(expected_users, affected_users)
 
     impact_level = st.session_state.get("incident_locked_impact_level", IMPACT_LEVELS[0])
@@ -816,11 +816,11 @@ def _handle_save_assessment(
     issue_key, summary, organization, priority, status, labels, assignee, reporter,
     incident_start, incident_end, duration_hours, duration_type
 ):
-    expected_users = int(st.session_state.get("incident_expected_users", 0) or 0)
-    affected_users = int(st.session_state.get("incident_affected_users", 0) or 0)
-    affected_user_source = st.session_state.get("incident_source", SOURCE_OPTIONS[0])
-    remarks = st.session_state.get("incident_remarks", "")
-    baseline_label = st.session_state.get("incident_baseline_source", "Manual baseline")
+    expected_users = int(st.session_state.get("incident_locked_expected_users", 0) or 0)
+    affected_users = int(st.session_state.get("incident_locked_affected_users", 0) or 0)
+    affected_user_source = st.session_state.get("incident_locked_source", SOURCE_OPTIONS[0])
+    remarks = st.session_state.get("incident_locked_remarks", "")
+    baseline_label = st.session_state.get("incident_locked_baseline_source", "Manual baseline")
 
     impact_level = st.session_state.get("incident_locked_impact_level", IMPACT_LEVELS[0])
     urgency_level = st.session_state.get("incident_locked_urgency_level", URGENCY_LEVELS[0])
@@ -1044,6 +1044,16 @@ def _render_assessment_wizard(ticket_df):
                 locked_impact_level = st.session_state.get("incident_impact_level", IMPACT_LEVELS[0])
                 locked_urgency_level = st.session_state.get("incident_urgency_level", URGENCY_LEVELS[0])
                 locked_priority, locked_severity = _compute_priority_severity(locked_impact_level, locked_urgency_level)
+
+                # Snapshot every Step 3 value here, at the moment "Next" is clicked -
+                # something intermittently re-triggers the "new ticket" reset (still being
+                # tracked down) between this render and Step 4's, which would otherwise
+                # silently wipe these back to their defaults before Save reads them.
+                st.session_state["incident_locked_expected_users"] = expected_users
+                st.session_state["incident_locked_affected_users"] = int(st.session_state.get("incident_affected_users", 0) or 0)
+                st.session_state["incident_locked_source"] = st.session_state.get("incident_source", SOURCE_OPTIONS[0])
+                st.session_state["incident_locked_remarks"] = st.session_state.get("incident_remarks", "")
+                st.session_state["incident_locked_baseline_source"] = st.session_state.get("incident_baseline_source", "Manual baseline")
                 st.session_state["incident_locked_impact_level"] = locked_impact_level
                 st.session_state["incident_locked_urgency_level"] = locked_urgency_level
                 st.session_state["incident_locked_priority"] = locked_priority
