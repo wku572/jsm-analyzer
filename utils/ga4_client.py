@@ -49,7 +49,10 @@ def fetch_ga4_daily_active_users(property_id, start_date="90daysAgo", end_date="
         date_text = row.dimension_values[0].value
         active_users_text = row.metric_values[0].value
 
-        activity_date = datetime.datetime.strptime(date_text, "%Y%m%d").date()
+        try:
+            activity_date = datetime.datetime.strptime(date_text, "%Y%m%d").date()
+        except ValueError:
+            continue
 
         rows.append({
             "activity_date": activity_date,
@@ -80,11 +83,18 @@ def fetch_ga4_hourly_active_users(property_id, start_date="90daysAgo", end_date=
         hour_text = row.dimension_values[1].value
         active_users_text = row.metric_values[0].value
 
-        activity_date = datetime.datetime.strptime(date_text, "%Y%m%d").date()
+        # GA4 can bucket long-tail combinations into a literal "(other)" row
+        # when date x hour cardinality is high; skip anything that isn't a
+        # real date/hour pair rather than failing the whole sync.
+        try:
+            activity_date = datetime.datetime.strptime(date_text, "%Y%m%d").date()
+            hour = int(hour_text)
+        except (ValueError, TypeError):
+            continue
 
         rows.append({
             "activity_date": activity_date,
-            "hour": int(hour_text),
+            "hour": hour,
             "active_users": float(active_users_text),
         })
 
