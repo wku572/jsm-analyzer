@@ -742,9 +742,10 @@ def _render_step_save(issue_key, organization, baseline_display, current_priorit
     affected_users = int(st.session_state.get("incident_affected_users", 0) or 0)
     impact_percentage, suggested_severity = _compute_impact(expected_users, affected_users)
 
-    impact_level = st.session_state.get("incident_impact_level", IMPACT_LEVELS[0])
-    urgency_level = st.session_state.get("incident_urgency_level", URGENCY_LEVELS[0])
-    computed_priority, computed_severity = _compute_priority_severity(impact_level, urgency_level)
+    impact_level = st.session_state.get("incident_locked_impact_level", IMPACT_LEVELS[0])
+    urgency_level = st.session_state.get("incident_locked_urgency_level", URGENCY_LEVELS[0])
+    computed_priority = st.session_state.get("incident_locked_priority", "Medium")
+    computed_severity = st.session_state.get("incident_locked_severity", "SEV-2")
 
     k1, k2, k3, k4 = st.columns(4)
     with k1:
@@ -821,9 +822,10 @@ def _handle_save_assessment(
     remarks = st.session_state.get("incident_remarks", "")
     baseline_label = st.session_state.get("incident_baseline_source", "Manual baseline")
 
-    impact_level = st.session_state.get("incident_impact_level", IMPACT_LEVELS[0])
-    urgency_level = st.session_state.get("incident_urgency_level", URGENCY_LEVELS[0])
-    computed_priority, computed_severity = _compute_priority_severity(impact_level, urgency_level)
+    impact_level = st.session_state.get("incident_locked_impact_level", IMPACT_LEVELS[0])
+    urgency_level = st.session_state.get("incident_locked_urgency_level", URGENCY_LEVELS[0])
+    computed_priority = st.session_state.get("incident_locked_priority", "Medium")
+    computed_severity = st.session_state.get("incident_locked_severity", "SEV-2")
 
     if expected_users <= 0:
         st.warning("Expected Active Users must be greater than zero before saving.")
@@ -1039,6 +1041,13 @@ def _render_assessment_wizard(ticket_df):
             if expected_users <= 0:
                 st.warning("Expected Active Users must be greater than zero to continue.")
             else:
+                locked_impact_level = st.session_state.get("incident_impact_level", IMPACT_LEVELS[0])
+                locked_urgency_level = st.session_state.get("incident_urgency_level", URGENCY_LEVELS[0])
+                locked_priority, locked_severity = _compute_priority_severity(locked_impact_level, locked_urgency_level)
+                st.session_state["incident_locked_impact_level"] = locked_impact_level
+                st.session_state["incident_locked_urgency_level"] = locked_urgency_level
+                st.session_state["incident_locked_priority"] = locked_priority
+                st.session_state["incident_locked_severity"] = locked_severity
                 st.session_state["incident_wizard_step"] = 4
                 st.rerun()
 
