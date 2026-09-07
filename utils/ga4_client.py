@@ -57,3 +57,35 @@ def fetch_ga4_daily_active_users(property_id, start_date="90daysAgo", end_date="
         })
 
     return rows
+
+
+def fetch_ga4_hourly_active_users(property_id, start_date="90daysAgo", end_date="yesterday"):
+    if not str(property_id).strip():
+        raise ValueError("A GA4 property ID is required.")
+
+    client = _get_ga4_client()
+
+    request = RunReportRequest(
+        property=f"properties/{property_id}",
+        dimensions=[Dimension(name="date"), Dimension(name="hour")],
+        metrics=[Metric(name="activeUsers")],
+        date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
+    )
+
+    response = client.run_report(request)
+
+    rows = []
+    for row in response.rows:
+        date_text = row.dimension_values[0].value
+        hour_text = row.dimension_values[1].value
+        active_users_text = row.metric_values[0].value
+
+        activity_date = datetime.datetime.strptime(date_text, "%Y%m%d").date()
+
+        rows.append({
+            "activity_date": activity_date,
+            "hour": int(hour_text),
+            "active_users": float(active_users_text),
+        })
+
+    return rows

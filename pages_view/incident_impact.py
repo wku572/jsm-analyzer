@@ -11,7 +11,8 @@ from utils.supabase_db import (
     delete_incident_impact_assessment,
     load_ga4_activity_records,
     calculate_ga4_weekday_baseline,
-    calculate_ga4_rolling_mau_baseline
+    calculate_ga4_rolling_mau_baseline,
+    GA4_DAILY_TOTAL_HOUR
 )
 from jira_client import update_issue_priority
 
@@ -209,6 +210,11 @@ def _build_ga4_org_coverage(activity_df, organization):
     coverage_df = coverage_df[
         coverage_df["organization"].str.casefold() == org_value
     ]
+
+    if "hour" in coverage_df.columns:
+        coverage_df = coverage_df[
+            pd.to_numeric(coverage_df["hour"], errors="coerce").fillna(GA4_DAILY_TOTAL_HOUR) == GA4_DAILY_TOTAL_HOUR
+        ]
 
     if coverage_df.empty:
         return {

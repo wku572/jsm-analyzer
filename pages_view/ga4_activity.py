@@ -9,8 +9,10 @@ from utils.supabase_db import (
     load_ga4_property_map,
     save_ga4_property_mapping,
     delete_ga4_property_mapping,
+    update_ga4_activity_excluded,
+    GA4_DAILY_TOTAL_HOUR,
 )
-from utils.ga4_client import fetch_ga4_daily_active_users
+from utils.ga4_client import fetch_ga4_daily_active_users, fetch_ga4_hourly_active_users
 
 
 WEEKDAYS = [
@@ -45,7 +47,7 @@ def _to_ga4_records(df):
     if "source" not in working.columns:
         working["source"] = "GA4"
     if "hour" not in working.columns:
-        working["hour"] = pd.NA
+        working["hour"] = GA4_DAILY_TOTAL_HOUR
     if "excluded" not in working.columns:
         working["excluded"] = False
     if "notes" not in working.columns:
@@ -116,7 +118,7 @@ def _parse_ga4_report_workbook(uploaded_file, organization):
             "organization": organization,
             "activity_date": activity_date.isoformat(),
             "weekday": activity_date.strftime("%A"),
-            "hour": pd.NA,
+            "hour": GA4_DAILY_TOTAL_HOUR,
             "active_users": float(active_users),
             "source": "GA4 Workbook",
             "excluded": False,
@@ -224,7 +226,10 @@ def _render_live_sync_tab(organizations):
 
     st.divider()
     st.subheader("Sync from GA4")
-    st.caption("Pulls the last 90 days of daily active users directly from GA4 and upserts them into GA4 activity.")
+    st.caption(
+        "Pulls the last 90 days of GA4 active users directly from GA4 and upserts them into GA4 activity — "
+        "both a whole-day total per day (what the Incident Impact baseline uses) and a per-hour breakdown."
+    )
 
     if not property_map:
         st.info("Map at least one organization to a GA4 property above to enable syncing.")
@@ -239,21 +244,35 @@ def _render_live_sync_tab(organizations):
     if st.button("Sync from GA4", type="primary", key="ga4_sync_button"):
         try:
             property_id = property_map[sync_org]
-            rows = fetch_ga4_daily_active_users(property_id)
+            daily_rows = fetch_ga4_daily_active_users(property_id)
+            hourly_rows = fetch_ga4_hourly_active_users(property_id)
 
-            if not rows:
+            if not daily_rows and not hourly_rows:
                 st.info(f"GA4 returned no activity rows for {sync_org} in the last 90 days.")
             else:
                 synced_at = pd.Timestamp.now(tz="UTC").isoformat()
                 records = []
 
-                for row in rows:
+                for row in daily_rows:
                     activity_date = row["activity_date"]
                     records.append({
                         "organization": sync_org,
                         "activity_date": activity_date.isoformat(),
                         "weekday": activity_date.strftime("%A"),
-                        "hour": pd.NA,
+                        "hour": GA4_DAILY_TOTAL_HOUR,
+                        "active_users": row["active_users"],
+                        "source": "GA4 API",
+                        "excluded": False,
+                        "notes": f"Synced from GA4 property {property_id} at {synced_at}",
+                    })
+
+                for row in hourly_rows:
+                    activity_date = row["activity_date"]
+                    records.append({
+                        "organization": sync_org,
+                        "activity_date": activity_date.isoformat(),
+                        "weekday": activity_date.strftime("%A"),
+                        "hour": row["hour"],
                         "active_users": row["active_users"],
                         "source": "GA4 API",
                         "excluded": False,
@@ -261,7 +280,10 @@ def _render_live_sync_tab(organizations):
                     })
 
                 save_ga4_activity_records(records)
-                st.success(f"Synced {len(records)} days of GA4 activity for {sync_org}.")
+                st.success(
+                    f"Synced {len(daily_rows)} daily total rows and {len(hourly_rows)} hourly rows "
+                    f"for {sync_org}."
+                )
                 st.rerun()
         except RuntimeError as exc:
             st.warning(str(exc))
@@ -442,8 +464,33 @@ def render(filtered_df=None):
         if col == "activity_date":
             view[col] = pd.to_datetime(view[col], errors="coerce").dt.strftime("%Y-%m-%d")
 
-    st.dataframe(
-        view.sort_values("activity_date", ascending=False),
+    st.caption("Hour: -1 = whole-day total (used by Incident Impact baselines), 0-23 = an hourly breakdown row.")
+
+    editor_df = view.sort_values("activity_date", ascending=False).reset_index(drop=True)
+    editable_columns = {"excluded"}
+    display_columns = [col for col in editor_df.columns if col != "id"]
+
+    edited_df = st.data_editor(
+        editor_df,
         width="stretch",
-        hide_index=True
+        hide_index=True,
+        column_order=display_columns,
+        disabled=[col for col in editor_df.columns if col not in editable_columns],
+        key="ga4_activity_editor"
     )
+
+    if st.button("Save Excluded Changes", key="ga4_save_excluded_changes"):
+        changed_mask = edited_df["excluded"] != editor_df["excluded"]
+        changed = edited_df[changed_mask]
+
+        if changed.empty:
+            st.info("No changes to save.")
+        else:
+            try:
+                for _, row in changed.iterrows():
+                    update_ga4_activity_excluded(row["id"], row["excluded"])
+                st.success(f"Updated {len(changed)} row(s).")
+                st.rerun()
+            except Exception as exc:
+                st.error("Failed to save excluded changes.")
+                st.exception(exc)

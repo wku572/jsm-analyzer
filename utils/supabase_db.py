@@ -9,6 +9,8 @@ HISTORY_TABLE = "historical_snapshots"
 INCIDENT_IMPACT_TABLE = "incident_impact_assessments"
 GA4_ACTIVITY_TABLE = "ga4_activity"
 GA4_PROPERTY_MAP_TABLE = "ga4_property_map"
+GA4_ACTIVITY_BATCH_SIZE = 500
+GA4_DAILY_TOTAL_HOUR = -1  # sentinel: a whole-day total row, as opposed to a specific hour (0-23)
 TICKET_EMBEDDINGS_TABLE = "ticket_embeddings"
 TICKET_EMBEDDINGS_BATCH_SIZE = 200
 
@@ -269,7 +271,7 @@ def _ga4_normalize_activity_frame(records):
         "organization": "",
         "activity_date": pd.NaT,
         "weekday": "",
-        "hour": pd.NA,
+        "hour": GA4_DAILY_TOTAL_HOUR,
         "active_users": 0,
         "source": "GA4",
         "excluded": False,
@@ -283,7 +285,7 @@ def _ga4_normalize_activity_frame(records):
     df["organization"] = df["organization"].fillna("").astype(str).str.strip()
     df["activity_date"] = pd.to_datetime(df["activity_date"], errors="coerce").dt.date
     df["weekday"] = df["weekday"].fillna("").astype(str).str.strip()
-    df["hour"] = pd.to_numeric(df["hour"], errors="coerce")
+    df["hour"] = pd.to_numeric(df["hour"], errors="coerce").fillna(GA4_DAILY_TOTAL_HOUR).astype(int)
     df["active_users"] = pd.to_numeric(df["active_users"], errors="coerce").fillna(0).astype(float)
     df["source"] = df["source"].fillna("GA4").astype(str).str.strip()
     df["excluded"] = df["excluded"].fillna(False).astype(bool)
@@ -309,7 +311,7 @@ def save_ga4_activity_records(records):
             "organization": row["organization"],
             "activity_date": row["activity_date"].isoformat() if hasattr(row["activity_date"], "isoformat") else str(row["activity_date"]),
             "weekday": row["weekday"],
-            "hour": None if pd.isna(row["hour"]) else int(row["hour"]),
+            "hour": int(row["hour"]),
             "active_users": float(row["active_users"]),
             "source": row["source"],
             "excluded": bool(row["excluded"]),
@@ -317,16 +319,25 @@ def save_ga4_activity_records(records):
         })
 
     try:
-        client.table(GA4_ACTIVITY_TABLE).upsert(
-            payload,
-            on_conflict="organization,activity_date,source"
-        ).execute()
+        for start in range(0, len(payload), GA4_ACTIVITY_BATCH_SIZE):
+            batch = payload[start:start + GA4_ACTIVITY_BATCH_SIZE]
+            client.table(GA4_ACTIVITY_TABLE).upsert(
+                batch,
+                on_conflict="organization,activity_date,hour,source"
+            ).execute()
     except Exception as exc:
         if _is_missing_table_error(exc):
             raise RuntimeError(
                 "The ga4_activity table does not exist yet. Run the Phase 2 SQL script before using GA4 features."
             ) from exc
         raise
+
+
+def update_ga4_activity_excluded(row_id, excluded):
+    client = get_client()
+    client.table(GA4_ACTIVITY_TABLE).update(
+        {"excluded": bool(excluded)}
+    ).eq("id", row_id).execute()
 
 
 def load_ga4_activity_records():
@@ -371,6 +382,11 @@ def load_ga4_baseline_records(organization, weekday, incident_date=None, lookbac
         baseline_df["weekday"].fillna("").astype(str).str.strip().str.casefold()
         == str(weekday).strip().casefold()
     ]
+
+    if "hour" in baseline_df.columns:
+        baseline_df = baseline_df[
+            pd.to_numeric(baseline_df["hour"], errors="coerce").fillna(GA4_DAILY_TOTAL_HOUR) == GA4_DAILY_TOTAL_HOUR
+        ]
 
     if "excluded" in baseline_df.columns:
         baseline_df = baseline_df[~baseline_df["excluded"].fillna(False)]
@@ -435,6 +451,11 @@ def calculate_ga4_rolling_mau_baseline(organization, incident_date=None, lookbac
         baseline_df["organization"].fillna("").astype(str).str.strip().str.casefold()
         == str(organization).strip().casefold()
     ]
+
+    if "hour" in baseline_df.columns:
+        baseline_df = baseline_df[
+            pd.to_numeric(baseline_df["hour"], errors="coerce").fillna(GA4_DAILY_TOTAL_HOUR) == GA4_DAILY_TOTAL_HOUR
+        ]
 
     if "excluded" in baseline_df.columns:
         baseline_df = baseline_df[~baseline_df["excluded"].fillna(False)]
