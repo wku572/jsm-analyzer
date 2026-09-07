@@ -343,19 +343,30 @@ def update_ga4_activity_excluded(row_id, excluded):
 def load_ga4_activity_records():
     client = get_client()
 
+    page_size = GA4_ACTIVITY_BATCH_SIZE
+    rows = []
+    start = 0
+
     try:
-        response = (
-            client.table(GA4_ACTIVITY_TABLE)
-            .select("*")
-            .order("activity_date", desc=False)
-            .execute()
-        )
+        while True:
+            response = (
+                client.table(GA4_ACTIVITY_TABLE)
+                .select("*")
+                .order("activity_date", desc=False)
+                .range(start, start + page_size - 1)
+                .execute()
+            )
+            batch = response.data or []
+            rows.extend(batch)
+
+            if len(batch) < page_size:
+                break
+
+            start += page_size
     except Exception as exc:
         if _is_missing_table_error(exc):
             return None
         raise
-
-    rows = response.data
 
     if not rows:
         return None
