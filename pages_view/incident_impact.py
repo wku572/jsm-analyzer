@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from utils.ui import kpi_card
+from utils.ui import kpi_card, format_ga4_hour
 from utils.auth import is_support_admin
 from utils.logger import write_audit_log
 from utils.supabase_db import (
@@ -610,6 +610,8 @@ def _render_step_review_baseline(
             col for col in ["activity_date", "weekday", "hour", "active_users", "source", "excluded"]
             if col in baseline_records.columns
         ]
+        if "hour" in baseline_records.columns:
+            baseline_records["hour"] = baseline_records["hour"].apply(format_ga4_hour)
         st.dataframe(
             baseline_records[preview_cols],
             width="stretch",

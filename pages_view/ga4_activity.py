@@ -2,6 +2,7 @@ import io
 import pandas as pd
 import streamlit as st
 
+from utils.ui import format_ga4_hour
 from utils.supabase_db import (
     save_ga4_activity_records,
     load_ga4_activity_records,
@@ -436,6 +437,8 @@ def render(filtered_df=None):
 
             records = baseline["records"].copy()
             display_cols = [col for col in ["activity_date", "weekday", "hour", "active_users", "source", "excluded"] if col in records.columns]
+            if "hour" in records.columns:
+                records["hour"] = records["hour"].apply(format_ga4_hour)
             st.dataframe(records[display_cols], width="stretch", hide_index=True)
 
     st.divider()
@@ -464,9 +467,11 @@ def render(filtered_df=None):
         if col == "activity_date":
             view[col] = pd.to_datetime(view[col], errors="coerce").dt.strftime("%Y-%m-%d")
 
-    st.caption("Hour: -1 = whole-day total (used by Incident Impact baselines), 0-23 = an hourly breakdown row.")
+    st.caption("Hour: \"All day\" = whole-day total (used by Incident Impact baselines), 0-23 = an hourly breakdown row.")
 
     editor_df = view.sort_values("activity_date", ascending=False).reset_index(drop=True)
+    if "hour" in editor_df.columns:
+        editor_df["hour"] = editor_df["hour"].apply(format_ga4_hour)
     editable_columns = {"excluded"}
     display_columns = [col for col in editor_df.columns if col != "id"]
 

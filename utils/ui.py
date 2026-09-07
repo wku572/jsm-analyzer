@@ -228,6 +228,15 @@ def footer():
     )
 
 
+def format_ga4_hour(value):
+    try:
+        hour = int(value)
+    except (TypeError, ValueError):
+        return value
+
+    return "All day" if hour == -1 else str(hour)
+
+
 def kpi_card(title, value, note="", icon="📌"):
     st.markdown(
         f"""
