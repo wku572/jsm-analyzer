@@ -440,6 +440,95 @@ def calculate_ga4_weekday_baseline(organization, weekday, incident_date=None, lo
     }
 
 
+TIME_SEGMENTS = [
+    {"label": "08:00-10:00", "hours": {8, 9}},
+    {"label": "10:00-12:00", "hours": {10, 11}},
+    {"label": "12:00-15:00", "hours": {12, 13, 14}},
+    {"label": "15:00-18:00", "hours": {15, 16, 17}},
+]
+
+
+def get_time_segment_for_hour(hour):
+    try:
+        hour = int(hour)
+    except (TypeError, ValueError):
+        return None
+
+    for segment in TIME_SEGMENTS:
+        if hour in segment["hours"]:
+            return segment
+
+    return None
+
+
+def calculate_ga4_segment_baseline(organization, weekday, hour, incident_date=None, lookback=8):
+    segment = get_time_segment_for_hour(hour)
+    if segment is None:
+        return None
+
+    df = load_ga4_activity_records()
+    if df is None or df.empty:
+        return None
+
+    seg_df = df.copy()
+    seg_df = seg_df[
+        seg_df["organization"].fillna("").astype(str).str.strip().str.casefold()
+        == str(organization).strip().casefold()
+    ]
+    seg_df = seg_df[
+        seg_df["weekday"].fillna("").astype(str).str.strip().str.casefold()
+        == str(weekday).strip().casefold()
+    ]
+
+    if "hour" not in seg_df.columns:
+        return None
+
+    seg_df["hour"] = pd.to_numeric(seg_df["hour"], errors="coerce")
+    seg_df = seg_df[seg_df["hour"].isin(segment["hours"])]
+
+    if "excluded" in seg_df.columns:
+        seg_df = seg_df[~seg_df["excluded"].fillna(False)]
+
+    if seg_df.empty:
+        return None
+
+    if incident_date is not None and "activity_date" in seg_df.columns:
+        incident_date = pd.to_datetime(incident_date, errors="coerce")
+        if pd.notna(incident_date):
+            seg_dates = pd.to_datetime(seg_df["activity_date"], errors="coerce").dt.date
+            cutoff_date = incident_date.date()
+            seg_df = seg_df[seg_dates < cutoff_date]
+
+    if seg_df.empty:
+        return None
+
+    seg_df["activity_date"] = pd.to_datetime(seg_df["activity_date"], errors="coerce")
+
+    daily_totals = (
+        seg_df.groupby("activity_date")["active_users"]
+        .sum()
+        .sort_index(ascending=False)
+        .head(lookback)
+    )
+
+    if daily_totals.empty:
+        return None
+
+    expected_users = round(float(daily_totals.mean()), 2)
+    used_dates = set(daily_totals.index)
+
+    records = seg_df[seg_df["activity_date"].isin(used_dates)].sort_values(
+        ["activity_date", "hour"], ascending=[False, True]
+    )
+
+    return {
+        "expected_users": expected_users,
+        "lookback_used": int(len(daily_totals)),
+        "records": records,
+        "baseline_type": f"GA4 Time-Segment Same-Weekday Phase 3 ({segment['label']})",
+    }
+
+
 def calculate_ga4_rolling_mau_baseline(organization, incident_date=None, lookback_days=30):
     df = load_ga4_activity_records()
 

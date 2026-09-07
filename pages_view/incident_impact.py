@@ -12,6 +12,7 @@ from utils.supabase_db import (
     load_ga4_activity_records,
     calculate_ga4_weekday_baseline,
     calculate_ga4_rolling_mau_baseline,
+    calculate_ga4_segment_baseline,
     GA4_DAILY_TOTAL_HOUR
 )
 from jira_client import update_issue_priority
@@ -129,6 +130,11 @@ def _format_baseline_display(baseline_type):
     text = str(baseline_type or "").strip()
     if "Rolling 30-Day" in text:
         return "GA4 rolling 30-day baseline"
+    if "Time-Segment" in text:
+        segment_label = text.split("(", 1)[1].rstrip(")") if "(" in text else ""
+        if segment_label:
+            return f"GA4 same-weekday baseline ({segment_label})"
+        return "GA4 same-weekday, same-time-segment baseline"
     if "Same-Weekday" in text:
         return "GA4 same-weekday baseline"
     return "Manual baseline"
@@ -148,8 +154,10 @@ def _baseline_selection_explanation(duration_type):
         )
 
     return (
-        "Single-day incidents use the previous same-weekday GA4 activity pattern when available. "
-        "If coverage is missing, enter a manual expected customer baseline."
+        "Single-day incidents match the previous same-weekday, same-time-of-day GA4 activity "
+        "(08:00-10:00, 10:00-12:00, 12:00-15:00, or 15:00-18:00) when the ticket was created in one of "
+        "those windows; otherwise the whole-day same-weekday pattern is used. If coverage is missing, "
+        "enter a manual expected customer baseline."
     )
 
 
@@ -946,6 +954,7 @@ def _render_assessment_wizard(ticket_df):
 
     incident_local = incident_start.tz_convert(local_timezone)
     incident_weekday = incident_local.strftime("%A")
+    incident_hour = incident_local.hour
 
     try:
         ga4_activity_df = load_ga4_activity_records()
@@ -953,11 +962,18 @@ def _render_assessment_wizard(ticket_df):
         ga4_activity_df = None
 
     if duration_type == "Single-day":
-        ga4_baseline = calculate_ga4_weekday_baseline(
+        ga4_baseline = calculate_ga4_segment_baseline(
             organization,
             incident_weekday,
+            incident_hour,
             incident_date=incident_start
         )
+        if ga4_baseline is None:
+            ga4_baseline = calculate_ga4_weekday_baseline(
+                organization,
+                incident_weekday,
+                incident_date=incident_start
+            )
     else:
         ga4_baseline = calculate_ga4_rolling_mau_baseline(
             organization,
