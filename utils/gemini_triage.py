@@ -53,12 +53,15 @@ def _build_investigation_parts(investigation_sources):
         if text:
             parts.append(f"[{label} findings]\n{text}")
 
-        file_bytes = source.get("file_bytes")
-        file_mime = source.get("file_mime")
+        for index, file_info in enumerate(source.get("files") or [], start=1):
+            file_bytes = file_info.get("bytes")
+            file_mime = file_info.get("mime")
 
-        if file_bytes and file_mime:
+            if not file_bytes or not file_mime:
+                continue
+
             if file_mime.startswith("image/"):
-                parts.append(f"[{label} - attached screenshot below]")
+                parts.append(f"[{label} - attached screenshot {index} below]")
                 parts.append(
                     genai_types.Part.from_bytes(data=file_bytes, mime_type=file_mime)
                 )
@@ -68,7 +71,7 @@ def _build_investigation_parts(investigation_sources):
                 except Exception:
                     decoded = ""
                 if decoded.strip():
-                    parts.append(f"[{label} - uploaded file contents]\n{decoded}")
+                    parts.append(f"[{label} - uploaded file {index} contents]\n{decoded}")
 
     return parts
 

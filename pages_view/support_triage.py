@@ -83,17 +83,20 @@ def _render_investigation_source_input(label, key_prefix):
         height=100,
     )
 
-    uploaded = st.file_uploader(
-        f"{label} file",
+    uploaded_files = st.file_uploader(
+        f"{label} files",
         type=["png", "jpg", "jpeg", "json", "txt"],
         key=f"{key_prefix}_file",
         label_visibility="collapsed",
+        accept_multiple_files=True,
     )
 
-    file_bytes = uploaded.getvalue() if uploaded is not None else None
-    file_mime = (uploaded.type or "application/octet-stream") if uploaded is not None else None
+    files = [
+        {"bytes": f.getvalue(), "mime": f.type or "application/octet-stream"}
+        for f in (uploaded_files or [])
+    ]
 
-    return {"label": label, "text": text, "file_bytes": file_bytes, "file_mime": file_mime}
+    return {"label": label, "text": text, "files": files}
 
 
 def _combine_feedback_text(parsed):
