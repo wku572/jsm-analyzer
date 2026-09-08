@@ -103,22 +103,27 @@ def _render_result(parsed, similar):
     with st.container(border=True):
         if is_l1:
             st.markdown("#### 📝 Draft Response")
-            st.text_area(
-                "Suggested reply to the customer/reporter",
-                value=parsed.get("draft_response", ""),
-                height=150,
-                disabled=True,
-                key="support_triage_draft_response_display"
-            )
+            response_text = parsed.get("draft_response", "")
+            st.markdown(response_text or "_No draft response was generated._")
+            response_label = "Suggested reply to the customer/reporter"
+            response_key = "support_triage_draft_response_plain"
         else:
             st.markdown("#### 🧭 Escalation Summary")
-            st.text_area(
-                "Summary for L2+",
-                value=parsed.get("escalation_summary", ""),
-                height=150,
-                disabled=True,
-                key="support_triage_escalation_summary_display"
-            )
+            response_text = parsed.get("escalation_summary", "")
+            st.markdown(response_text or "_No escalation summary was generated._")
+            response_label = "Summary for L2+"
+            response_key = "support_triage_escalation_summary_plain"
+
+        if response_text:
+            with st.expander("Copy as plain text"):
+                st.text_area(
+                    response_label,
+                    value=response_text,
+                    height=150,
+                    disabled=True,
+                    label_visibility="collapsed",
+                    key=response_key
+                )
 
     with st.container(border=True):
         st.markdown("#### 🗂️ Similar Past Tickets Used")
