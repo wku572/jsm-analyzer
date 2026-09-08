@@ -7,20 +7,29 @@ from google.genai import types as genai_types
 MODEL = "gemini-3.5-flash"
 
 SYSTEM_PROMPT = """You are a support triage assistant for an L1 support team.
-Given a new ticket and similar past tickets (with how they were resolved),
-decide whether this looks resolvable at L1 or needs escalation to L2+.
+Given a new ticket, similar past tickets (with how they were resolved), and
+optionally investigation findings from Elastic Search, Metabase, and/or an
+operational portal, decide whether this looks resolvable at L1 or needs
+escalation to L2+.
 
-Respond in this exact format:
+Use any investigation findings provided as the primary evidence for your
+analysis - they reflect what was actually found for this specific incident,
+which is more reliable than general similarity to past tickets.
+
+Respond in this exact format, all five fields every time regardless of
+decision:
 
 DECISION: [L1_RESOLVABLE or ESCALATE]
 CONFIDENCE: [High/Medium/Low]
-
-If L1_RESOLVABLE:
-DRAFT_RESPONSE: <a suggested reply to the customer/reporter>
-
-If ESCALATE:
-ESCALATION_SUMMARY: <what's known, what's been tried, why it needs L2, and
-which similar past tickets support that>
+INVESTIGATION_SUMMARY: <synthesize the ticket and any investigation findings
+provided - what the evidence shows, in plain terms>
+ASSIGNEE_COMMENT: <an internal comment draft for the assignee or next
+handler - technical, references the investigation findings and any similar
+past tickets by key, appropriate whether resolving or escalating>
+REPORTER_COMMENT: <an external-facing comment draft for the reporter - no
+internal jargon, log details, or ticket keys. If resolvable, explain the fix
+and next steps. If escalating, give an appropriate status update without
+overpromising a timeline>
 """
 
 
@@ -34,7 +43,37 @@ def _get_gemini_client():
     return genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
 
-def triage_ticket(ticket_text, similar_tickets):
+def _build_investigation_parts(investigation_sources):
+    parts = []
+
+    for source in investigation_sources or []:
+        label = source.get("label", "Investigation Source")
+        text = (source.get("text") or "").strip()
+
+        if text:
+            parts.append(f"[{label} findings]\n{text}")
+
+        file_bytes = source.get("file_bytes")
+        file_mime = source.get("file_mime")
+
+        if file_bytes and file_mime:
+            if file_mime.startswith("image/"):
+                parts.append(f"[{label} - attached screenshot below]")
+                parts.append(
+                    genai_types.Part.from_bytes(data=file_bytes, mime_type=file_mime)
+                )
+            else:
+                try:
+                    decoded = file_bytes.decode("utf-8", errors="replace")
+                except Exception:
+                    decoded = ""
+                if decoded.strip():
+                    parts.append(f"[{label} - uploaded file contents]\n{decoded}")
+
+    return parts
+
+
+def triage_ticket(ticket_text, similar_tickets, investigation_sources=None):
     client = _get_gemini_client()
 
     context = "\n\n".join(
@@ -42,12 +81,21 @@ def triage_ticket(ticket_text, similar_tickets):
         for s in similar_tickets
     ) or "No similar past tickets were found."
 
+    contents = [f"New ticket:\n{ticket_text}\n\nSimilar past tickets:\n{context}"]
+
+    investigation_parts = _build_investigation_parts(investigation_sources)
+    if investigation_parts:
+        contents.append("Investigation findings for this ticket:")
+        contents.extend(investigation_parts)
+    else:
+        contents.append("No investigation findings were provided for this ticket.")
+
     response = client.models.generate_content(
         model=MODEL,
-        contents=f"New ticket:\n{ticket_text}\n\nSimilar past tickets:\n{context}",
+        contents=contents,
         config=genai_types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
-            max_output_tokens=600,
+            max_output_tokens=1200,
             # gemini-3.5-flash spends tokens on invisible reasoning by default,
             # which can silently eat the whole max_output_tokens budget before
             # any visible text is produced. Disabled since this task is a
@@ -82,9 +130,24 @@ def parse_triage_response(raw_text):
     parsed = {
         "decision": "",
         "confidence": "",
+        "investigation_summary": "",
+        "assignee_comment": "",
+        "reporter_comment": "",
+        # Kept for backward compatibility with feedback rows logged under the
+        # older single-comment protocol; the current prompt no longer emits these.
         "draft_response": "",
         "escalation_summary": "",
         "raw_text": raw_text,
+    }
+
+    section_markers = {
+        "DECISION:": ("decision", False),
+        "CONFIDENCE:": ("confidence", False),
+        "INVESTIGATION_SUMMARY:": ("investigation_summary", True),
+        "ASSIGNEE_COMMENT:": ("assignee_comment", True),
+        "REPORTER_COMMENT:": ("reporter_comment", True),
+        "DRAFT_RESPONSE:": ("draft_response", True),
+        "ESCALATION_SUMMARY:": ("escalation_summary", True),
     }
 
     current_key = None
@@ -96,24 +159,24 @@ def parse_triage_response(raw_text):
 
     for line in raw_text.splitlines():
         stripped = line.strip()
+        matched = False
 
-        if stripped.upper().startswith("DECISION:"):
-            flush()
-            parsed["decision"] = stripped.split(":", 1)[1].strip()
-            current_key, buffer = None, []
-        elif stripped.upper().startswith("CONFIDENCE:"):
-            flush()
-            parsed["confidence"] = stripped.split(":", 1)[1].strip()
-            current_key, buffer = None, []
-        elif stripped.upper().startswith("DRAFT_RESPONSE:"):
-            flush()
-            current_key = "draft_response"
-            buffer = [stripped.split(":", 1)[1].strip()]
-        elif stripped.upper().startswith("ESCALATION_SUMMARY:"):
-            flush()
-            current_key = "escalation_summary"
-            buffer = [stripped.split(":", 1)[1].strip()]
-        elif current_key:
+        for marker, (key, is_multiline) in section_markers.items():
+            if stripped.upper().startswith(marker):
+                flush()
+                value = stripped.split(":", 1)[1].strip()
+
+                if is_multiline:
+                    current_key = key
+                    buffer = [value]
+                else:
+                    parsed[key] = value
+                    current_key, buffer = None, []
+
+                matched = True
+                break
+
+        if not matched and current_key:
             buffer.append(line)
 
     flush()

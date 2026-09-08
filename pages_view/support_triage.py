@@ -72,19 +72,74 @@ def _render_decision_banner(is_l1):
     )
 
 
+def _render_investigation_source_input(label, key_prefix):
+    st.markdown(f"**{label}**")
+
+    text = st.text_area(
+        f"{label} findings",
+        key=f"{key_prefix}_text",
+        label_visibility="collapsed",
+        placeholder="Paste findings or JSON here...",
+        height=100,
+    )
+
+    uploaded = st.file_uploader(
+        f"{label} file",
+        type=["png", "jpg", "jpeg", "json", "txt"],
+        key=f"{key_prefix}_file",
+        label_visibility="collapsed",
+    )
+
+    file_bytes = uploaded.getvalue() if uploaded is not None else None
+    file_mime = (uploaded.type or "application/octet-stream") if uploaded is not None else None
+
+    return {"label": label, "text": text, "file_bytes": file_bytes, "file_mime": file_mime}
+
+
+def _combine_feedback_text(parsed):
+    sections = []
+    if parsed.get("investigation_summary"):
+        sections.append(f"Investigation Summary:\n{parsed['investigation_summary']}")
+    if parsed.get("assignee_comment"):
+        sections.append(f"Assignee Comment:\n{parsed['assignee_comment']}")
+    if parsed.get("reporter_comment"):
+        sections.append(f"Reporter Comment:\n{parsed['reporter_comment']}")
+
+    if sections:
+        return "\n\n".join(sections)
+
+    return parsed.get("draft_response") or parsed.get("escalation_summary") or ""
+
+
 def _log_current_feedback(parsed, thumbs):
     ticket_text = st.session_state.get("support_triage_last_ticket_text", "")
-    response_text = parsed.get("draft_response") or parsed.get("escalation_summary") or ""
 
     log_feedback(
         ticket_text=ticket_text,
         decision=parsed.get("decision", ""),
         confidence=parsed.get("confidence", ""),
-        response_text=response_text,
+        response_text=_combine_feedback_text(parsed),
         thumbs=thumbs,
         user_email=st.session_state.get("user_email", ""),
     )
     st.toast("Feedback logged.")
+
+
+def _render_copyable_section(title, icon, text, empty_message, key):
+    with st.container(border=True):
+        st.markdown(f"#### {icon} {title}")
+        st.markdown(text or empty_message)
+
+        if text:
+            with st.expander("Copy as plain text"):
+                st.text_area(
+                    title,
+                    value=text,
+                    height=150,
+                    disabled=True,
+                    label_visibility="collapsed",
+                    key=key
+                )
 
 
 def _render_result(parsed, similar):
@@ -100,30 +155,24 @@ def _render_result(parsed, similar):
     with k3:
         kpi_card("Similar Tickets Used", len(similar), "Retrieved from the ticket index", "🔎")
 
-    with st.container(border=True):
-        if is_l1:
-            st.markdown("#### 📝 Draft Response")
-            response_text = parsed.get("draft_response", "")
-            st.markdown(response_text or "_No draft response was generated._")
-            response_label = "Suggested reply to the customer/reporter"
-            response_key = "support_triage_draft_response_plain"
-        else:
-            st.markdown("#### 🧭 Escalation Summary")
-            response_text = parsed.get("escalation_summary", "")
-            st.markdown(response_text or "_No escalation summary was generated._")
-            response_label = "Summary for L2+"
-            response_key = "support_triage_escalation_summary_plain"
-
-        if response_text:
-            with st.expander("Copy as plain text"):
-                st.text_area(
-                    response_label,
-                    value=response_text,
-                    height=150,
-                    disabled=True,
-                    label_visibility="collapsed",
-                    key=response_key
-                )
+    _render_copyable_section(
+        "Investigation Summary", "🔍",
+        parsed.get("investigation_summary", ""),
+        "_No investigation summary was generated._",
+        "support_triage_investigation_summary_plain"
+    )
+    _render_copyable_section(
+        "Draft Comment — Assignee (Internal)", "🛠️",
+        parsed.get("assignee_comment", ""),
+        "_No assignee comment was generated._",
+        "support_triage_assignee_comment_plain"
+    )
+    _render_copyable_section(
+        "Draft Comment — Reporter (External)", "💬",
+        parsed.get("reporter_comment", ""),
+        "_No reporter comment was generated._",
+        "support_triage_reporter_comment_plain"
+    )
 
     with st.container(border=True):
         st.markdown("#### 🗂️ Similar Past Tickets Used")
@@ -207,16 +256,30 @@ def render(filtered_df):
             label_visibility="collapsed"
         )
 
+    with st.container(border=True):
+        st.markdown("#### 🔬 Investigation Sources (optional)")
+        st.caption("Paste findings or attach a screenshot/file from any of these tools to sharpen the analysis.")
+
+        source_cols = st.columns(3)
+        with source_cols[0]:
+            es_source = _render_investigation_source_input("Elastic Search", "support_triage_es")
+        with source_cols[1]:
+            metabase_source = _render_investigation_source_input("Metabase", "support_triage_metabase")
+        with source_cols[2]:
+            portal_source = _render_investigation_source_input("Operational Portal", "support_triage_portal")
+
+        investigation_sources = [es_source, metabase_source, portal_source]
+
         if st.button("🚀 Triage Ticket", type="primary"):
             if not ticket_text.strip():
                 st.warning("Enter a ticket description before triaging.")
             elif index_count == 0:
                 st.warning("The ticket index is empty. Refresh the index before triaging.")
             else:
-                with st.spinner("Analyzing against ticket history..."):
+                with st.spinner("Analyzing against ticket history and investigation findings..."):
                     try:
                         similar = retrieve_similar_tickets(ticket_text)
-                        raw_response = triage_ticket(ticket_text, similar)
+                        raw_response = triage_ticket(ticket_text, similar, investigation_sources)
                         parsed = parse_triage_response(raw_response)
 
                         st.session_state["support_triage_last_ticket_text"] = ticket_text

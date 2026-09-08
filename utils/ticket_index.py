@@ -42,7 +42,7 @@ def tickets_from_dataframe(df):
         if not issue_key:
             continue
 
-        resolution_text = _clean_text(row.get("Last Comment"))
+        resolution_text = _clean_text(row.get("Last Internal Comment"))
         if not resolution_text:
             resolution_text = _clean_text(row.get("Description"))
 

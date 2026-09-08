@@ -61,6 +61,22 @@ def _adf_to_text(node):
     return ""
 
 
+def _extract_internal_comment_text(fields_data):
+    comments = fields_data.get("comment", {}).get("comments", [])
+
+    # jsdPublic is this instance's internal/customer-visible flag (confirmed
+    # live against the KSC project - there is no `visibility` object in use
+    # here). A missing key is treated as unknown, not internal, rather than
+    # silently including it - see the comment on fetch_jira_issues' `fields`
+    # list for why the key can go missing if requested wrong.
+    internal_comments = [c for c in comments if c.get("jsdPublic") is False]
+
+    if not internal_comments:
+        return ""
+
+    return _adf_to_text(internal_comments[-1].get("body"))
+
+
 def _extract_select_field_value(fields_data, field_id):
     field = fields_data.get(field_id)
     if isinstance(field, dict):
@@ -257,8 +273,7 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
         else:
             org_names = ""
 
-        comments = fields_data.get("comment", {}).get("comments", [])
-        last_comment = _adf_to_text(comments[-1].get("body")) if comments else ""
+        last_internal_comment = _extract_internal_comment_text(fields_data)
 
         rows.append({
             "Issue Type": fields_data.get("issuetype", {}).get("name"),
@@ -277,7 +292,7 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
             "Due date": fields_data.get("duedate"),
             "Organizations": org_names,
             "Description": _adf_to_text(fields_data.get("description")),
-            "Last Comment": last_comment,
+            "Last Internal Comment": last_internal_comment,
             "Escalation Level": _extract_escalation_level(fields_data),
             "Jira Impact Field": _extract_select_field_value(fields_data, JIRA_IMPACT_FIELD_ID),
             "Jira Urgency Field": _extract_select_field_value(fields_data, JIRA_URGENCY_FIELD_ID),
