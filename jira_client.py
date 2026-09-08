@@ -61,11 +61,27 @@ def _adf_to_text(node):
     return ""
 
 
-def _extract_escalation_level(fields_data):
-    escalation_field = fields_data.get("customfield_11144")
-    if isinstance(escalation_field, dict):
-        return escalation_field.get("value")
+def _extract_select_field_value(fields_data, field_id):
+    field = fields_data.get(field_id)
+    if isinstance(field, dict):
+        return field.get("value")
     return None
+
+
+# Jira's own field labels for these two custom fields are swapped relative to
+# this app's "Impact Level" / "Urgency Level" vocabulary:
+#   - Jira's "Urgency" field (customfield_10043) holds Critical/High/Medium/Low
+#     values -> that's this app's IMPACT_LEVELS vocabulary.
+#   - Jira's "Impact" field (customfield_10004) holds Extensive / Widespread,
+#     Significant / Large, etc. -> that's this app's URGENCY_LEVELS vocabulary.
+# Confirmed directly against real KSC tickets - do not "fix" this to look
+# symmetric without re-checking, it's genuinely backwards in Jira's own setup.
+JIRA_IMPACT_FIELD_ID = "customfield_10004"
+JIRA_URGENCY_FIELD_ID = "customfield_10043"
+
+
+def _extract_escalation_level(fields_data):
+    return _extract_select_field_value(fields_data, "customfield_11144")
 
 
 def get_jira_secret(name):
@@ -80,7 +96,19 @@ def get_jira_secret(name):
     return None
 
 
-def update_issue_priority(issue_key: str, priority_name: str):
+def update_issue_priority(
+    issue_key: str,
+    priority_name: str,
+    jira_impact_value: str = None,
+    jira_urgency_value: str = None,
+):
+    """Push Priority (native field) and, optionally, Jira's own Impact/Urgency
+    select-list fields to a single Jira issue in one request.
+
+    jira_impact_value/jira_urgency_value are Jira's field values directly -
+    the caller is responsible for the impact/urgency swap documented above
+    _extract_select_field_value; this function does not re-map anything.
+    """
     base_url = get_jira_secret("JIRA_BASE_URL")
     email = get_jira_secret("JIRA_EMAIL")
     api_token = get_jira_secret("JIRA_API_TOKEN")
@@ -93,9 +121,15 @@ def update_issue_priority(issue_key: str, priority_name: str):
     base_url = base_url.rstrip("/")
     url = f"{base_url}/rest/api/3/issue/{issue_key}"
 
+    fields = {"priority": {"name": priority_name}}
+    if jira_impact_value is not None:
+        fields[JIRA_IMPACT_FIELD_ID] = {"value": jira_impact_value}
+    if jira_urgency_value is not None:
+        fields[JIRA_URGENCY_FIELD_ID] = {"value": jira_urgency_value}
+
     response = requests.put(
         url,
-        json={"fields": {"priority": {"name": priority_name}}},
+        json={"fields": fields},
         auth=HTTPBasicAuth(email, api_token),
         headers={
             "Accept": "application/json",
@@ -138,7 +172,9 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
         "customfield_10002",
         "description",
         "comment",
-        "customfield_11144"
+        "customfield_11144",
+        JIRA_IMPACT_FIELD_ID,
+        JIRA_URGENCY_FIELD_ID
     ]
 
     all_issues = []
@@ -243,6 +279,8 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
             "Description": _adf_to_text(fields_data.get("description")),
             "Last Comment": last_comment,
             "Escalation Level": _extract_escalation_level(fields_data),
+            "Jira Impact Field": _extract_select_field_value(fields_data, JIRA_IMPACT_FIELD_ID),
+            "Jira Urgency Field": _extract_select_field_value(fields_data, JIRA_URGENCY_FIELD_ID),
             "Year": created_dt.year if pd.notna(created_dt) else "",
             "Month": created_dt.strftime("%B") if pd.notna(created_dt) else "",
             "Ticket Age": ticket_age,
