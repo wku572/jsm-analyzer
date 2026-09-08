@@ -11,4 +11,5 @@ streamlit-autorefresh
 streamlit-cookies-controller
 google-analytics-data
 anthropic
+google-genai
 chromadb

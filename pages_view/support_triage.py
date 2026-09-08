@@ -8,7 +8,7 @@ from utils.ticket_index import (
     retrieve_similar_tickets,
     get_index_stats,
 )
-from utils.claude_triage import triage_ticket, parse_triage_response, describe_error
+from utils.gemini_triage import triage_ticket, parse_triage_response, describe_error
 from utils.feedback_log import log_feedback
 
 
