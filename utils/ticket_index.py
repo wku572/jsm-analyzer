@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 from chromadb.utils import embedding_functions
 
@@ -9,6 +10,13 @@ from utils.supabase_db import (
 
 
 DEFAULT_ESCALATION_LEVEL = "L1 – Support"
+
+
+def _clean_text(value, default=""):
+    if value is None or (pd.api.types.is_scalar(value) and pd.isna(value)):
+        return default
+    text = str(value).strip()
+    return text if text and text.lower() not in ("none", "nan") else default
 
 
 @st.cache_resource
@@ -30,21 +38,19 @@ def tickets_from_dataframe(df):
 
     tickets = []
     for _, row in resolved_df.iterrows():
-        issue_key = str(row.get("Key", "")).strip()
+        issue_key = _clean_text(row.get("Key"))
         if not issue_key:
             continue
 
-        resolution_text = str(row.get("Last Comment", "")).strip()
+        resolution_text = _clean_text(row.get("Last Comment"))
         if not resolution_text:
-            resolution_text = str(row.get("Description", "")).strip()
+            resolution_text = _clean_text(row.get("Description"))
 
-        escalation_level = str(row.get("Escalation Level", "")).strip()
-        if not escalation_level or escalation_level.lower() == "none":
-            escalation_level = DEFAULT_ESCALATION_LEVEL
+        escalation_level = _clean_text(row.get("Escalation Level"), DEFAULT_ESCALATION_LEVEL)
 
         tickets.append({
             "id": issue_key,
-            "summary": str(row.get("Summary", "")).strip(),
+            "summary": _clean_text(row.get("Summary")),
             "resolution": resolution_text,
             "escalation_level": escalation_level,
         })
