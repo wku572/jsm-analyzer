@@ -94,6 +94,7 @@ def _extract_select_field_value(fields_data, field_id):
 # symmetric without re-checking, it's genuinely backwards in Jira's own setup.
 JIRA_IMPACT_FIELD_ID = "customfield_10004"
 JIRA_URGENCY_FIELD_ID = "customfield_10043"
+JIRA_SEVERITY_FIELD_ID = "customfield_10049"
 
 
 def _extract_escalation_level(fields_data):
@@ -117,13 +118,15 @@ def update_issue_priority(
     priority_name: str,
     jira_impact_value: str = None,
     jira_urgency_value: str = None,
+    jira_severity_value: str = None,
 ):
-    """Push Priority (native field) and, optionally, Jira's own Impact/Urgency
-    select-list fields to a single Jira issue in one request.
+    """Push Priority (native field) and, optionally, Jira's own Impact/Urgency/
+    Severity select-list fields to a single Jira issue in one request.
 
-    jira_impact_value/jira_urgency_value are Jira's field values directly -
-    the caller is responsible for the impact/urgency swap documented above
-    _extract_select_field_value; this function does not re-map anything.
+    jira_impact_value/jira_urgency_value/jira_severity_value are Jira's field
+    values directly (e.g. "Sev-1", not "SEV-1") - the caller is responsible
+    for the impact/urgency swap and the severity format translation; this
+    function does not re-map anything.
     """
     base_url = get_jira_secret("JIRA_BASE_URL")
     email = get_jira_secret("JIRA_EMAIL")
@@ -142,6 +145,8 @@ def update_issue_priority(
         fields[JIRA_IMPACT_FIELD_ID] = {"value": jira_impact_value}
     if jira_urgency_value is not None:
         fields[JIRA_URGENCY_FIELD_ID] = {"value": jira_urgency_value}
+    if jira_severity_value is not None:
+        fields[JIRA_SEVERITY_FIELD_ID] = {"value": jira_severity_value}
 
     response = requests.put(
         url,
@@ -190,7 +195,8 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
         "comment",
         "customfield_11144",
         JIRA_IMPACT_FIELD_ID,
-        JIRA_URGENCY_FIELD_ID
+        JIRA_URGENCY_FIELD_ID,
+        JIRA_SEVERITY_FIELD_ID
     ]
 
     all_issues = []
@@ -296,6 +302,7 @@ def fetch_jira_issues(jql: str, max_results: int = 5000):
             "Escalation Level": _extract_escalation_level(fields_data),
             "Jira Impact Field": _extract_select_field_value(fields_data, JIRA_IMPACT_FIELD_ID),
             "Jira Urgency Field": _extract_select_field_value(fields_data, JIRA_URGENCY_FIELD_ID),
+            "Jira Severity Field": _extract_select_field_value(fields_data, JIRA_SEVERITY_FIELD_ID),
             "Year": created_dt.year if pd.notna(created_dt) else "",
             "Month": created_dt.strftime("%B") if pd.notna(created_dt) else "",
             "Ticket Age": ticket_age,

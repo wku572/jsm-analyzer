@@ -57,6 +57,16 @@ SEVERITY_BY_IMPACT = {
     "Low": "SEV-3",
 }
 
+# Jira's Severity field (customfield_10049) uses "Sev-0".."Sev-3" - confirmed
+# via its live allowedValues, same four levels as SEVERITY_BY_IMPACT, just a
+# different capitalization/hyphenation than this app's "SEV-0".."SEV-3".
+SEVERITY_TO_JIRA_VALUE = {
+    "SEV-0": "Sev-0",
+    "SEV-1": "Sev-1",
+    "SEV-2": "Sev-2",
+    "SEV-3": "Sev-3",
+}
+
 PRIORITY_MATRIX = {
     "Low": {
         "Minor / Localized": "Lowest",
@@ -742,7 +752,8 @@ def _render_step_enter_impact(baseline_display):
 def _jira_sync_mismatches(
     computed_priority, current_priority,
     urgency_level, current_jira_impact_field,
-    impact_level, current_jira_urgency_field
+    impact_level, current_jira_urgency_field,
+    computed_severity, current_jira_severity_field
 ):
     mismatches = []
 
@@ -757,12 +768,17 @@ def _jira_sync_mismatches(
     if impact_level != current_jira_urgency_field:
         mismatches.append(f"Urgency (Jira field): **{current_jira_urgency_field}** → **{impact_level}**")
 
+    jira_severity_value = SEVERITY_TO_JIRA_VALUE.get(computed_severity)
+    if jira_severity_value != current_jira_severity_field:
+        mismatches.append(f"Severity (Jira field): **{current_jira_severity_field}** → **{jira_severity_value}**")
+
     return mismatches
 
 
 def _render_step_save(
     issue_key, organization, baseline_display,
-    current_priority, current_jira_impact_field, current_jira_urgency_field
+    current_priority, current_jira_impact_field, current_jira_urgency_field,
+    current_jira_severity_field
 ):
     st.markdown("### Step 4: Save Assessment")
 
@@ -796,11 +812,12 @@ def _render_step_save(
         mismatches = _jira_sync_mismatches(
             computed_priority, current_priority,
             urgency_level, current_jira_impact_field,
-            impact_level, current_jira_urgency_field
+            impact_level, current_jira_urgency_field,
+            computed_severity, current_jira_severity_field
         )
 
         if not mismatches:
-            st.caption("Jira ticket Priority, Impact, and Urgency already match the computed values.")
+            st.caption("Jira ticket Priority, Impact, Urgency, and Severity already match the computed values.")
         else:
             st.checkbox(
                 "Also update this ticket in Jira — " + "; ".join(mismatches),
@@ -849,7 +866,7 @@ def _render_step_save(
 def _handle_save_assessment(
     issue_key, summary, organization, priority, status, labels, assignee, reporter,
     incident_start, incident_end, duration_hours, duration_type,
-    jira_impact_field, jira_urgency_field
+    jira_impact_field, jira_urgency_field, jira_severity_field
 ):
     expected_users = int(st.session_state.get("incident_locked_expected_users", 0) or 0)
     affected_users = int(st.session_state.get("incident_locked_affected_users", 0) or 0)
@@ -877,7 +894,8 @@ def _handle_save_assessment(
     jira_mismatches = _jira_sync_mismatches(
         computed_priority, priority,
         urgency_level, jira_impact_field,
-        impact_level, jira_urgency_field
+        impact_level, jira_urgency_field,
+        computed_severity, jira_severity_field
     )
 
     push_requested = (
@@ -931,6 +949,7 @@ def _handle_save_assessment(
                 # jira_client.py for why this is swapped, not a typo.
                 jira_impact_value=urgency_level,
                 jira_urgency_value=impact_level,
+                jira_severity_value=SEVERITY_TO_JIRA_VALUE.get(computed_severity),
             )
             pushed_at = pd.Timestamp.now(tz="UTC").isoformat()
 
@@ -983,6 +1002,7 @@ def _render_assessment_wizard(ticket_df):
     # Impact Level / Urgency Level vocabulary - see jira_client.py.
     jira_impact_field = _normalize_text(ticket.get("Jira Impact Field"), "Unknown")
     jira_urgency_field = _normalize_text(ticket.get("Jira Urgency Field"), "Unknown")
+    jira_severity_field = _normalize_text(ticket.get("Jira Severity Field"), "Unknown")
     status = _normalize_text(ticket.get("Status"), "Unknown")
     labels = _normalize_text(ticket.get("Labels"), "Unlabeled")
     assignee = _normalize_text(ticket.get("Assignee"), "Unassigned")
@@ -1117,7 +1137,7 @@ def _render_assessment_wizard(ticket_df):
     elif current_step == 4:
         _render_step_save(
             issue_key, organization, baseline_display,
-            priority, jira_impact_field, jira_urgency_field
+            priority, jira_impact_field, jira_urgency_field, jira_severity_field
         )
 
         back_clicked, save_clicked = _render_wizard_nav(True, "Save Assessment", "step4")
@@ -1128,7 +1148,7 @@ def _render_assessment_wizard(ticket_df):
             _handle_save_assessment(
                 issue_key, summary, organization, priority, status, labels, assignee, reporter,
                 incident_start, incident_end, duration_hours, duration_type,
-                jira_impact_field, jira_urgency_field
+                jira_impact_field, jira_urgency_field, jira_severity_field
             )
 
 
