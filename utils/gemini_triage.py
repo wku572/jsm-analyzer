@@ -4,7 +4,7 @@ from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 
 
-MODEL = "gemini-3.6-flash"
+MODEL = "gemini-3.5-flash"
 
 SYSTEM_PROMPT = """You are a support triage assistant for an L1 support team.
 Given a new ticket and similar past tickets (with how they were resolved),
@@ -48,6 +48,12 @@ def triage_ticket(ticket_text, similar_tickets):
         config=genai_types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
             max_output_tokens=600,
+            # gemini-3.5-flash spends tokens on invisible reasoning by default,
+            # which can silently eat the whole max_output_tokens budget before
+            # any visible text is produced. Disabled since this task is a
+            # straightforward classification, not something needing deep
+            # chain-of-thought.
+            thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
         ),
     )
 
@@ -62,6 +68,8 @@ def describe_error(exc):
             return "The Gemini API key is invalid, missing, or lacks access. Check GEMINI_API_KEY in secrets.toml."
         if status_code == 429:
             return "Gemini API rate limit reached. Please wait a moment and try again."
+        if status_code == 503:
+            return "The Gemini model is temporarily overloaded (high demand). Please try again shortly."
         if status_code == 400:
             return getattr(exc, "message", None) or "Gemini API rejected the request (bad request)."
 
