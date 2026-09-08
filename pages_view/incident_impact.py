@@ -712,16 +712,20 @@ def _render_step_enter_impact(baseline_display):
         kpi_card("Suggested Business Impact", suggested_severity, "Impact-based recommendation", "🚦")
 
     st.markdown("#### JSM Triage Classification")
+    # Display labels below are swapped relative to the `impact_level`/`urgency_level`
+    # Python names to match Jira's own field naming (see jira_client.py) - the
+    # variables and everything downstream (matrix, session state, DB columns)
+    # keep this app's original vocabulary unchanged.
     triage_cols = st.columns(2)
     with triage_cols[0]:
         impact_level = st.selectbox(
-            "Impact Level",
+            "Urgency Level",
             IMPACT_LEVELS,
             key="incident_impact_level"
         )
     with triage_cols[1]:
         urgency_level = st.selectbox(
-            "Urgency Level",
+            "Impact Level",
             URGENCY_LEVELS,
             key="incident_urgency_level"
         )
@@ -730,9 +734,9 @@ def _render_step_enter_impact(baseline_display):
 
     p1, p2 = st.columns(2)
     with p1:
-        kpi_card("Computed Priority", computed_priority, "Impact × Urgency matrix", "\U0001F6a9")
+        kpi_card("Computed Priority", computed_priority, "Urgency × Impact matrix", "\U0001F6a9")
     with p2:
-        kpi_card("Computed Severity", computed_severity, f"{impact_level} impact", "\U0001F6a8")
+        kpi_card("Computed Severity", computed_severity, f"{impact_level} urgency", "\U0001F6a8")
 
 
 def _jira_sync_mismatches(
@@ -786,7 +790,7 @@ def _render_step_save(
     with p1:
         kpi_card("Computed Priority", computed_priority, f"{impact_level} × {urgency_level}", "\U0001F6a9")
     with p2:
-        kpi_card("Computed Severity", computed_severity, f"{impact_level} impact", "\U0001F6a8")
+        kpi_card("Computed Severity", computed_severity, f"{impact_level} urgency", "\U0001F6a8")
 
     if is_support_admin():
         mismatches = _jira_sync_mismatches(
@@ -1145,8 +1149,10 @@ def _render_history_tab():
             "Affected Users": _normalize_text(row.get("affected_users")),
             "Impact %": _format_history_cell(row.get("impact_percentage"), "impact_percentage"),
             "Business Impact": _normalize_text(row.get("suggested_severity")),
-            "Impact Level": _normalize_text(row.get("impact_level")),
-            "Urgency Level": _normalize_text(row.get("urgency_level")),
+            # Display headers swapped to match Jira's field naming - see the
+            # comment in _render_step_enter_impact.
+            "Urgency Level": _normalize_text(row.get("impact_level")),
+            "Impact Level": _normalize_text(row.get("urgency_level")),
             "Priority": _normalize_text(row.get("computed_priority")),
             "Severity": _normalize_text(row.get("computed_severity")),
             "Jira Synced": "Yes" if row.get("jira_priority_pushed") else "No",
@@ -1307,14 +1313,14 @@ def _render_history_tab():
 
     with triage_edit_cols[0]:
         edit_impact_level = st.selectbox(
-            "Impact Level",
+            "Urgency Level",
             IMPACT_LEVELS,
             index=IMPACT_LEVELS.index(stored_impact_level) if stored_impact_level in IMPACT_LEVELS else 2,
             key=f"incident_edit_impact_level_{record_id}"
         )
     with triage_edit_cols[1]:
         edit_urgency_level = st.selectbox(
-            "Urgency Level",
+            "Impact Level",
             URGENCY_LEVELS,
             index=URGENCY_LEVELS.index(stored_urgency_level) if stored_urgency_level in URGENCY_LEVELS else 2,
             key=f"incident_edit_urgency_level_{record_id}"
