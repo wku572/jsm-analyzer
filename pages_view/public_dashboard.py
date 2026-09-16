@@ -5,12 +5,15 @@ from datetime import datetime
 import pytz
 
 from utils.supabase_db import load_current_snapshot
+from utils.ui import PRIMARY, ACCENT
 
 
-# Brand colors
-PRIMARY = "#0B4F63"     # Kifiya dark teal
-ACCENT = "#F28C28"      # orange
-SUCCESS = "#22C55E"     # green
+# Brand colors - shared with the rest of the app (utils/ui.py) so the public
+# page and the authenticated app read as one product, not two.
+SUCCESS = "#22C55E"
+DANGER = "#dc2626"
+INFO_BLUE = "#2563eb"
+WARN_AMBER = "#f59e0b"
 
 STATUS_COLORS = {
     "In Progress": PRIMARY,
@@ -22,17 +25,27 @@ SUMMARY_COLORS = PRIMARY
 
 LOCAL_TZ = "Africa/Addis_Ababa"
 
+CHART_LAYOUT = dict(
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Raleway, sans-serif", color="#334155", size=13),
+    title_font=dict(family="Montserrat, sans-serif", color=PRIMARY, size=15),
+)
 
-def public_kpi_card(title, value, note, color):
+
+def public_kpi_card(title, value, note, color, icon="📌"):
     st.markdown(
         f"""
         <div style="
             background:white;
             border-radius:18px;
             padding:20px;
-            border-left:6px solid {color};
+            border-top:5px solid {color};
+            border-left:1px solid #e2e8f0;
+            border-right:1px solid #e2e8f0;
+            border-bottom:1px solid #e2e8f0;
             box-shadow:0 8px 24px rgba(15,23,42,0.06);
-            min-height:120px;
+            min-height:130px;
         ">
             <div style="
                 color:#64748b;
@@ -41,19 +54,20 @@ def public_kpi_card(title, value, note, color):
                 text-transform:uppercase;
                 letter-spacing:.5px;
             ">
-                {title}
+                {icon} {title}
             </div>
             <div style="
                 color:{PRIMARY};
                 font-size:34px;
                 font-weight:900;
                 margin-top:8px;
+                font-family:'Montserrat', sans-serif;
             ">
                 {value}
             </div>
             <div style="
-                color:#64748b;
-                font-size:12px;
+                color:#94a3b8;
+                font-size:11px;
                 margin-top:8px;
                 line-height:1.4;
             ">
@@ -63,6 +77,17 @@ def public_kpi_card(title, value, note, color):
         """,
         unsafe_allow_html=True
     )
+
+
+def _style_chart(fig, height=420, bottom_margin=60):
+    fig.update_layout(
+        height=height,
+        margin=dict(l=20, r=20, t=50, b=bottom_margin),
+        **CHART_LAYOUT
+    )
+    fig.update_xaxes(gridcolor="#eef2f6")
+    fig.update_yaxes(gridcolor="#eef2f6")
+    return fig
 
 
 def prepare_public_data(df):
@@ -102,6 +127,7 @@ def render():
                     font-size:34px;
                     font-weight:900;
                     margin-bottom:6px;
+                    font-family:'Montserrat', sans-serif;
                 ">
                     📊 JSM Public Operations Dashboard
                 </div>
@@ -137,7 +163,7 @@ def render():
                     text-transform:uppercase;
                     letter-spacing:.8px;
                 ">
-                    Last Updated
+                    ⏱️ Last Updated
                 </div>
                 <div style="
                     margin-top:10px;
@@ -145,6 +171,7 @@ def render():
                     font-size:18px;
                     font-weight:800;
                     line-height:1.35;
+                    font-family:'Montserrat', sans-serif;
                 ">
                     {last_updated}
                 </div>
@@ -169,6 +196,8 @@ def render():
     active_df = df[df["Status Category"].isin(["In Progress", "Pending"])]
     overdue_1m = len(active_df[active_df["Ticket Age"] > 30])
 
+    st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
+
     c1, c2, c3, c4, c5 = st.columns(5)
 
     with c1:
@@ -176,7 +205,8 @@ def render():
             "Total Tickets",
             total_tickets,
             "All tracked Jira tickets",
-            PRIMARY
+            PRIMARY,
+            "🗂️"
         )
 
     with c2:
@@ -184,7 +214,8 @@ def render():
             "In Progress",
             in_progress,
             "Currently active work",
-            "#2563eb"
+            INFO_BLUE,
+            "🔵"
         )
 
     with c3:
@@ -192,7 +223,8 @@ def render():
             "Pending",
             pending,
             "Waiting or dependency queue",
-            "#f59e0b"
+            WARN_AMBER,
+            "🟡"
         )
 
     with c4:
@@ -200,7 +232,8 @@ def render():
             "Resolved",
             resolved,
             "Completed ticket volume",
-            "#16a34a"
+            SUCCESS,
+            "🟢"
         )
 
     with c5:
@@ -208,122 +241,135 @@ def render():
             "Overdue > 1 Month",
             overdue_1m,
             "Open tickets older than 30 days",
-            "#dc2626"
+            DANGER,
+            "🔴"
         )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.divider()
-
-    st.markdown("### 📌 Executive Summary")
+    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
 
     resolved_rate = round((resolved / total_tickets) * 100, 1) if total_tickets else 0
     pending_rate = round((pending / total_tickets) * 100, 1) if total_tickets else 0
     active_rate = round(((in_progress + pending) / total_tickets) * 100, 1) if total_tickets else 0
 
-    st.info(
+    st.markdown(
         f"""
-        The current Jira Service Management queue contains **{total_tickets} total tickets**.
-        Of these, **{resolved_rate}% are resolved**, while **{active_rate}% remain active**
-        across In Progress and Pending categories.
-
-        Pending tickets represent **{pending_rate}%** of the total queue. 
-        There are **{overdue_1m} open tickets older than one month**, which should be monitored as an operational backlog risk.
-
-        This public view provides high-level visibility only and does not expose ticket details, customer information, or internal Jira records.
-        """
+        <div style="
+            background:#eef6fb;
+            border:1px solid #d3e6f0;
+            border-radius:18px;
+            padding:20px 24px;
+            box-shadow:0 8px 24px rgba(15,23,42,0.04);
+        ">
+            <div style="
+                font-weight:800;
+                font-size:14px;
+                color:{PRIMARY};
+                text-transform:uppercase;
+                letter-spacing:.04em;
+                margin-bottom:10px;
+            ">
+                📌 Executive Summary
+            </div>
+            <div style="color:#1e3a4c; font-size:14.5px; line-height:1.7;">
+                The current Jira Service Management queue contains <b>{total_tickets} total tickets</b>.
+                Of these, <b>{resolved_rate}% are resolved</b>, while <b>{active_rate}% remain active</b>
+                across In Progress and Pending categories.
+                <br><br>
+                Pending tickets represent <b>{pending_rate}%</b> of the total queue.
+                There are <b>{overdue_1m} open tickets older than one month</b>, which should be monitored as an operational backlog risk.
+                <br><br>
+                <span style="color:#64748b; font-size:13px;">
+                    This public view provides high-level visibility only and does not expose ticket details,
+                    customer information, or internal Jira records.
+                </span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
 
     left, right = st.columns(2)
 
     with left:
-        st.markdown("### 📊 Status Distribution")
+        with st.container(border=True):
+            st.markdown("#### 📊 Status Distribution")
 
-        status_summary = (
-            df["Status Category"]
-            .value_counts()
-            .reset_index()
-        )
-        status_summary.columns = ["Status Category", "Tickets"]
+            status_summary = (
+                df["Status Category"]
+                .value_counts()
+                .reset_index()
+            )
+            status_summary.columns = ["Status Category", "Tickets"]
 
-        fig = px.pie(
-            status_summary,
-            names="Status Category",
-            values="Tickets",
-            hole=0.45,
-            title="Ticket Status Distribution",
-            color="Status Category",
-            color_discrete_map=STATUS_COLORS
-        )
+            fig = px.pie(
+                status_summary,
+                names="Status Category",
+                values="Tickets",
+                hole=0.55,
+                title="Ticket Status Distribution",
+                color="Status Category",
+                color_discrete_map=STATUS_COLORS
+            )
+            fig.update_traces(textfont=dict(family="Raleway, sans-serif"))
 
-        fig.update_layout(
-            height=430,
-            margin=dict(l=20, r=20, t=60, b=20)
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(_style_chart(fig, bottom_margin=20), use_container_width=True)
 
     with right:
-        st.markdown("### 🏦 Top Organizations")
+        with st.container(border=True):
+            st.markdown("#### 🏦 Top Organizations")
 
-        org_summary = (
-            df.groupby("Organizations")
+            org_summary = (
+                df.groupby("Organizations")
+                .size()
+                .reset_index(name="Tickets")
+                .sort_values("Tickets", ascending=False)
+                .head(10)
+            )
+
+            fig2 = px.bar(
+                org_summary,
+                x="Organizations",
+                y="Tickets",
+                text="Tickets",
+                title="Top Organizations by Ticket Volume",
+                color_discrete_sequence=[SUMMARY_COLORS]
+            )
+
+            fig2.update_traces(textposition="outside", marker_line_width=0)
+            fig2.update_layout(xaxis_tickangle=-35)
+
+            st.plotly_chart(_style_chart(fig2, bottom_margin=100), use_container_width=True)
+
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+
+    with st.container(border=True):
+        st.markdown("#### 🧩 Issue Type Summary")
+
+        issue_summary = (
+            df.groupby("Issue Type")
             .size()
             .reset_index(name="Tickets")
             .sort_values("Tickets", ascending=False)
             .head(10)
         )
 
-        fig2 = px.bar(
-            org_summary,
-            x="Organizations",
+        fig4 = px.bar(
+            issue_summary,
+            x="Issue Type",
             y="Tickets",
             text="Tickets",
-            title="Top Organizations by Ticket Volume",
+            title="Top Issue Types",
             color_discrete_sequence=[SUMMARY_COLORS]
         )
 
-        fig2.update_traces(textposition="outside")
-        fig2.update_layout(
-            height=430,
-            xaxis_tickangle=-35,
-            margin=dict(l=20, r=20, t=60, b=100)
-        )
+        fig4.update_traces(textposition="outside", marker_line_width=0)
+        fig4.update_layout(xaxis_tickangle=-35)
 
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(_style_chart(fig4, bottom_margin=100), use_container_width=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown("### 🧩 Issue Type Summary")
-
-    issue_summary = (
-        df.groupby("Issue Type")
-        .size()
-        .reset_index(name="Tickets")
-        .sort_values("Tickets", ascending=False)
-        .head(10)
-    )
-
-    fig4 = px.bar(
-        issue_summary,
-        x="Issue Type",
-        y="Tickets",
-        text="Tickets",
-        title="Top Issue Types",
-        color_discrete_sequence=[SUMMARY_COLORS]
-    )
-
-    fig4.update_traces(textposition="outside")
-    fig4.update_layout(
-        height=430,
-        xaxis_tickangle=-35,
-        margin=dict(l=20, r=20, t=60, b=100)
-    )
-
-    st.plotly_chart(fig4, use_container_width=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     st.divider()
 
     st.caption(
