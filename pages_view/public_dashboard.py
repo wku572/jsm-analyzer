@@ -1,3 +1,6 @@
+import base64
+from pathlib import Path
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -5,7 +8,7 @@ from datetime import datetime
 import pytz
 
 from utils.supabase_db import load_current_snapshot
-from utils.ui import PRIMARY, ACCENT
+from utils.ui import PRIMARY, ACCENT, LOGO_PATH
 
 
 # Brand colors - shared with the rest of the app (utils/ui.py) so the public
@@ -106,6 +109,15 @@ def get_last_updated():
     return datetime.now(tz).strftime("%Y-%m-%d %H:%M")
 
 
+@st.cache_data
+def _logo_data_uri():
+    path = Path(LOGO_PATH)
+    if not path.exists():
+        return ""
+    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+    return f"data:image/png;base64,{encoded}"
+
+
 def render():
 
     last_updated = get_last_updated()
@@ -113,6 +125,23 @@ def render():
     hero_col, updated_col = st.columns([5, 1.25])
 
     with hero_col:
+        logo_uri = _logo_data_uri()
+        logo_html = (
+            f"""
+            <span style="
+                background:white;
+                border-radius:12px;
+                padding:6px 12px;
+                display:inline-flex;
+                align-items:center;
+                margin-right:16px;
+            ">
+                <img src="{logo_uri}" style="height:32px; display:block;" />
+            </span>
+            """
+            if logo_uri else ""
+        )
+
         st.markdown(
             f"""
             <div style="
@@ -124,12 +153,14 @@ def render():
                 box-shadow:0 12px 32px rgba(2,64,79,0.25);
             ">
                 <div style="
+                    display:flex;
+                    align-items:center;
                     font-size:34px;
                     font-weight:900;
                     margin-bottom:6px;
                     font-family:'Montserrat', sans-serif;
                 ">
-                    📊 JSM Public Operations Dashboard
+                    {logo_html}JSM Public Operations Dashboard
                 </div>
                 <div style="
                     font-size:15px;
