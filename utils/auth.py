@@ -1,3 +1,5 @@
+import time
+
 import streamlit as st
 from supabase import create_client
 from streamlit_cookies_controller import CookieController
@@ -205,14 +207,24 @@ def logout():
         "LOGOUT"
     )
 
-    controller.remove(COOKIE_ACCESS)
-    controller.remove(COOKIE_REFRESH)
+    try:
+        controller.remove(COOKIE_ACCESS)
+        controller.remove(COOKIE_REFRESH)
+    except Exception:
+        # Cookie removal runs through the component's JS round-trip; a
+        # hiccup here shouldn't block logout - session_state below is what
+        # actually gates access on the next run.
+        pass
 
     st.session_state.authenticated = False
     st.session_state.username = ""
     st.session_state.user_email = ""
     st.session_state.user_role = "slt_viewer"
 
+    # Give the cookie-removal component's JS round-trip a moment to actually
+    # reach the browser before tearing the script down - rerunning
+    # immediately races it and surfaces as a component error.
+    time.sleep(0.3)
     st.rerun()
 
 
