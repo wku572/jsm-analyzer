@@ -295,65 +295,33 @@ def render():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    left2, right2 = st.columns(2)
+    st.markdown("### 🧩 Issue Type Summary")
 
-    with left2:
-        st.markdown("### 👤 Assignee Workload Summary")
+    issue_summary = (
+        df.groupby("Issue Type")
+        .size()
+        .reset_index(name="Tickets")
+        .sort_values("Tickets", ascending=False)
+        .head(10)
+    )
 
-        assignee_summary = (
-            active_df.groupby("Assignee")
-            .size()
-            .reset_index(name="Active Tickets")
-            .sort_values("Active Tickets", ascending=False)
-            .head(10)
-        )
+    fig4 = px.bar(
+        issue_summary,
+        x="Issue Type",
+        y="Tickets",
+        text="Tickets",
+        title="Top Issue Types",
+        color_discrete_sequence=[SUMMARY_COLORS]
+    )
 
-        fig3 = px.bar(
-            assignee_summary,
-            x="Assignee",
-            y="Active Tickets",
-            text="Active Tickets",
-            title="Top Active Workload by Assignee",
-            color_discrete_sequence=[SUMMARY_COLORS]
-        )
+    fig4.update_traces(textposition="outside")
+    fig4.update_layout(
+        height=430,
+        xaxis_tickangle=-35,
+        margin=dict(l=20, r=20, t=60, b=100)
+    )
 
-        fig3.update_traces(textposition="outside")
-        fig3.update_layout(
-            height=430,
-            xaxis_tickangle=-35,
-            margin=dict(l=20, r=20, t=60, b=100)
-        )
-
-        st.plotly_chart(fig3, use_container_width=True)
-
-    with right2:
-        st.markdown("### 🧩 Issue Type Summary")
-
-        issue_summary = (
-            df.groupby("Issue Type")
-            .size()
-            .reset_index(name="Tickets")
-            .sort_values("Tickets", ascending=False)
-            .head(10)
-        )
-
-        fig4 = px.bar(
-            issue_summary,
-            x="Issue Type",
-            y="Tickets",
-            text="Tickets",
-            title="Top Issue Types",
-            color_discrete_sequence=[SUMMARY_COLORS]
-        )
-
-        fig4.update_traces(textposition="outside")
-        fig4.update_layout(
-            height=430,
-            xaxis_tickangle=-35,
-            margin=dict(l=20, r=20, t=60, b=100)
-        )
-
-        st.plotly_chart(fig4, use_container_width=True)
+    st.plotly_chart(fig4, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.divider()
