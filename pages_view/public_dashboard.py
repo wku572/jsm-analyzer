@@ -400,9 +400,22 @@ def render():
 
         st.plotly_chart(_style_chart(fig4, bottom_margin=100), use_container_width=True)
 
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    st.divider()
+    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
 
-    st.caption(
-        "Public dashboard: aggregated metrics only. Detailed ticket records are available only to authenticated users."
+    st.markdown(
+        f"""
+        <div style="
+            border-top:1px solid #e2e8f0;
+            padding-top:18px;
+            text-align:center;
+        ">
+            <div style="color:#64748b; font-size:12.5px;">
+                🔒 Public dashboard: aggregated metrics only. Detailed ticket records are available only to authenticated users.
+            </div>
+            <div style="color:#94a3b8; font-size:11px; margin-top:6px;">
+                © 2026 Kifiya Financial Technology &bull; JSM Analytics Platform
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
