@@ -141,7 +141,11 @@ div[role="radiogroup"] label {{
     padding: 7px 9px;
     border-radius: 10px;
     margin-bottom: 2px;
-    color: white;
+    color: {PRIMARY};
+}}
+
+div[role="radiogroup"] label p {{
+    color: {PRIMARY};
 }}
 
 div[role="radiogroup"] label:hover {{
