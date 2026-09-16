@@ -1,15 +1,21 @@
+import logging
 import time
 
 import streamlit as st
 from supabase import create_client
 from streamlit_cookies_controller import CookieController
 
-from utils.logger import write_audit_log
+from utils.logger import write_audit_log, count_recent_login_failures
+
+
+logger = logging.getLogger(__name__)
 
 
 USER_ROLES_TABLE = "user_roles"
 COOKIE_ACCESS = "jsm_access_token"
 COOKIE_REFRESH = "jsm_refresh_token"
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_LOCKOUT_MINUTES = 15
 
 
 def get_client():
@@ -34,8 +40,9 @@ def get_role_by_email(email):
         )
         if response.data:
             return response.data.get("role", "slt_viewer")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Role lookup failed for %s, defaulting to slt_viewer: %s", email, exc)
+        write_audit_log(email, "unknown", "ROLE_LOOKUP_FAILED", str(exc))
 
     return "slt_viewer"
 
@@ -115,13 +122,15 @@ def authenticate_user(email, password, keep_signed_in=True):
             controller.set(
                 COOKIE_ACCESS,
                 auth_response.session.access_token,
-                max_age=60 * 60 * 12
+                max_age=60 * 60 * 12,
+                secure=True
             )
 
             controller.set(
                 COOKIE_REFRESH,
                 auth_response.session.refresh_token,
-                max_age=60 * 60 * 12
+                max_age=60 * 60 * 12,
+                secure=True
             )
 
         write_audit_log(
@@ -182,17 +191,24 @@ def login_modal():
         type="primary",
         use_container_width=True
     ):
-        try:
-            if authenticate_user(email, password, keep_signed_in):
-                st.rerun()
+        recent_failures = count_recent_login_failures(email, LOGIN_LOCKOUT_MINUTES)
 
-        except Exception:
-            write_audit_log(
-                email,
-                "unknown",
-                "LOGIN_FAILED"
+        if recent_failures >= MAX_LOGIN_ATTEMPTS:
+            st.error(
+                f"Too many failed login attempts. Try again in {LOGIN_LOCKOUT_MINUTES} minutes."
             )
-            st.error("Invalid email or password")
+        else:
+            try:
+                if authenticate_user(email, password, keep_signed_in):
+                    st.rerun()
+
+            except Exception:
+                write_audit_log(
+                    email,
+                    "unknown",
+                    "LOGIN_FAILED"
+                )
+                st.error("Invalid email or password")
 
 
 def logout():
@@ -280,6 +296,14 @@ def can_view_raw_data():
 
 
 def can_view_assignee_workload():
+    return get_user_role() in [
+        "support_admin",
+        "admin",
+        "engineer_pm"
+    ]
+
+
+def can_manage_incidents():
     return get_user_role() in [
         "support_admin",
         "admin",

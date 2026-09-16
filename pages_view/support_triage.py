@@ -15,6 +15,15 @@ from utils.feedback_log import log_feedback
 
 DEFAULT_JQL = "project = KSC ORDER BY created DESC"
 MAX_INDEX_TICKETS = 2000
+MAX_FILE_BYTES = 5 * 1024 * 1024
+MAX_TOTAL_UPLOAD_BYTES = 15 * 1024 * 1024
+
+# Real file-signature checks, since a browser-supplied MIME type is only a
+# client-side hint and can't be trusted to reflect actual file content.
+IMAGE_SIGNATURES = {
+    "image/png": b"\x89PNG\r\n\x1a\n",
+    "image/jpeg": b"\xff\xd8\xff",
+}
 
 
 def _render_banner(title, subtitle, tone):
@@ -91,10 +100,28 @@ def _render_investigation_source_input(label, key_prefix):
         accept_multiple_files=True,
     )
 
-    files = [
-        {"bytes": f.getvalue(), "mime": f.type or "application/octet-stream"}
-        for f in (uploaded_files or [])
-    ]
+    files = []
+    total_bytes = sum(f.size for f in (uploaded_files or []))
+
+    for f in uploaded_files or []:
+        if f.size > MAX_FILE_BYTES:
+            st.warning(f"Skipped {f.name}: exceeds the {MAX_FILE_BYTES // (1024*1024)}MB per-file limit.")
+            continue
+
+        if total_bytes > MAX_TOTAL_UPLOAD_BYTES:
+            st.warning(f"Skipped {f.name}: total uploads for {label} exceed the {MAX_TOTAL_UPLOAD_BYTES // (1024*1024)}MB limit.")
+            continue
+
+        file_bytes = f.getvalue()
+        declared_mime = f.type or "application/octet-stream"
+
+        actual_mime = declared_mime
+        if declared_mime in IMAGE_SIGNATURES:
+            if not file_bytes.startswith(IMAGE_SIGNATURES[declared_mime]):
+                st.warning(f"Skipped {f.name}: file content doesn't match its declared image type.")
+                continue
+
+        files.append({"bytes": file_bytes, "mime": actual_mime})
 
     return {"label": label, "text": text, "files": files}
 

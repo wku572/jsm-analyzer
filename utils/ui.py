@@ -1,3 +1,5 @@
+import html
+
 import streamlit as st
 from datetime import datetime
 import pytz
@@ -245,9 +247,9 @@ def kpi_card(title, value, note="", icon="📌"):
     st.markdown(
         f"""
 <div class="kpi-card">
-    <div class="kpi-title">{icon} {title}</div>
-    <div class="kpi-value">{value}</div>
-    <div class="kpi-note">{note}</div>
+    <div class="kpi-title">{icon} {html.escape(str(title))}</div>
+    <div class="kpi-value">{html.escape(str(value))}</div>
+    <div class="kpi-note">{html.escape(str(note))}</div>
 </div>
         """,
         unsafe_allow_html=True

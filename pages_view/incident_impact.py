@@ -1,8 +1,10 @@
+import html
+
 import pandas as pd
 import streamlit as st
 
 from utils.ui import kpi_card, format_ga4_hour
-from utils.auth import is_support_admin
+from utils.auth import is_support_admin, can_manage_incidents
 from utils.logger import write_audit_log
 from utils.supabase_db import (
     save_incident_impact_assessment,
@@ -537,11 +539,16 @@ def _render_step_review_baseline(
 ):
     st.markdown("### Step 2: Review Baseline")
 
+    # organization is a Jira-sourced value that can be edited by reporters via
+    # the customer portal - escape it before it goes into any unsafe_allow_html
+    # block below, so a malicious org name can't inject HTML/JS.
+    organization_html = html.escape(str(organization))
+
     if ga4_baseline is not None:
         banner_bg, banner_border, banner_text = "#e8f7ef", "#86efac", "#166534"
         banner_title = "GA4 baseline available"
         banner_subtitle = (
-            f"{baseline_display} is ready for {organization}. "
+            f"{baseline_display} is ready for {organization_html}. "
             f"{ga4_baseline['lookback_used']} records were used to estimate {ga4_baseline['expected_users']:.2f} expected active users."
         )
         banner_records = str(int(ga4_baseline["lookback_used"]))
@@ -574,7 +581,7 @@ def _render_step_review_baseline(
                 {banner_subtitle}
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top: 10px;">
-                <span style="background: rgba(255,255,255,0.65); padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;">Organization: {organization}</span>
+                <span style="background: rgba(255,255,255,0.65); padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;">Organization: {organization_html}</span>
                 <span style="background: rgba(255,255,255,0.65); padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;">Baseline type: {baseline_display}</span>
                 <span style="background: rgba(255,255,255,0.65); padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;">Historical records: {banner_records}</span>
                 <span style="background: rgba(255,255,255,0.65); padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;">Expected active users: {banner_expected}</span>
@@ -868,6 +875,10 @@ def _handle_save_assessment(
     incident_start, incident_end, duration_hours, duration_type,
     jira_impact_field, jira_urgency_field, jira_severity_field
 ):
+    if not can_manage_incidents():
+        st.error("You do not have permission to save incident impact assessments.")
+        return
+
     expected_users = int(st.session_state.get("incident_locked_expected_users", 0) or 0)
     affected_users = int(st.session_state.get("incident_locked_affected_users", 0) or 0)
     affected_user_source = st.session_state.get("incident_locked_source", SOURCE_OPTIONS[0])
@@ -1352,7 +1363,9 @@ def _render_history_tab():
     edit_actions = st.columns(2)
     with edit_actions[0]:
         if st.button("Update Assessment", type="primary", key=f"incident_update_{record_id}"):
-            if edit_expected_users <= 0:
+            if not can_manage_incidents():
+                st.error("You do not have permission to update incident impact assessments.")
+            elif edit_expected_users <= 0:
                 st.warning("Expected Active Users must be greater than zero before updating.")
             else:
                 try:
@@ -1399,13 +1412,16 @@ def _render_history_tab():
             key=f"confirm_delete_{record_id}"
         )
         if st.button("Delete Assessment", key=f"incident_delete_{record_id}") and confirm_delete:
-            try:
-                delete_incident_impact_assessment(record_id)
-                st.success("Assessment deleted successfully.")
-                st.rerun()
-            except Exception as exc:
-                st.error("Failed to delete the assessment.")
-                st.exception(exc)
+            if not can_manage_incidents():
+                st.error("You do not have permission to delete incident impact assessments.")
+            else:
+                try:
+                    delete_incident_impact_assessment(record_id)
+                    st.success("Assessment deleted successfully.")
+                    st.rerun()
+                except Exception as exc:
+                    st.error("Failed to delete the assessment.")
+                    st.exception(exc)
 
 
 def render(filtered_df):

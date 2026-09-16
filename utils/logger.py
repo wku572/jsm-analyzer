@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from supabase import create_client
 
@@ -34,3 +34,27 @@ def write_audit_log(username, role, action, details=""):
     except Exception:
         # Never crash the app because logging failed
         pass
+
+
+def count_recent_login_failures(username, minutes=15):
+    try:
+        client = get_client()
+
+        tz = pytz.timezone(LOCAL_TZ)
+        cutoff = (datetime.now(tz) - timedelta(minutes=minutes)).isoformat()
+
+        response = (
+            client.table(AUDIT_TABLE)
+            .select("id", count="exact")
+            .eq("username", username or "")
+            .eq("action", "LOGIN_FAILED")
+            .gte("created_at", cutoff)
+            .execute()
+        )
+
+        return response.count or 0
+
+    except Exception:
+        # Fail open on the counter itself - a broken count check should
+        # never be the reason a legitimate user can't log in.
+        return 0

@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 
 from utils.ui import format_ga4_hour
+from utils.auth import can_manage_incidents
 from utils.supabase_db import (
     save_ga4_activity_records,
     load_ga4_activity_records,
@@ -195,7 +196,9 @@ def _render_live_sync_tab(organizations):
             mapping_submitted = st.form_submit_button("Save Mapping")
 
         if mapping_submitted:
-            if not str(mapping_org).strip() or not mapping_property_id.strip():
+            if not can_manage_incidents():
+                st.error("You do not have permission to manage GA4 property mappings.")
+            elif not str(mapping_org).strip() or not mapping_property_id.strip():
                 st.warning("Both organization and property ID are required.")
             else:
                 try:
@@ -217,13 +220,16 @@ def _render_live_sync_tab(organizations):
             )
 
             if st.button("Remove Mapping", key="ga4_remove_mapping_button"):
-                try:
-                    delete_ga4_property_mapping(remove_org)
-                    st.success(f"Removed the GA4 mapping for {remove_org}.")
-                    st.rerun()
-                except Exception as exc:
-                    st.error("Failed to remove the property mapping.")
-                    st.exception(exc)
+                if not can_manage_incidents():
+                    st.error("You do not have permission to manage GA4 property mappings.")
+                else:
+                    try:
+                        delete_ga4_property_mapping(remove_org)
+                        st.success(f"Removed the GA4 mapping for {remove_org}.")
+                        st.rerun()
+                    except Exception as exc:
+                        st.error("Failed to remove the property mapping.")
+                        st.exception(exc)
 
     st.divider()
     st.subheader("Sync from GA4")
@@ -243,6 +249,9 @@ def _render_live_sync_tab(organizations):
     )
 
     if st.button("Sync from GA4", type="primary", key="ga4_sync_button"):
+        if not can_manage_incidents():
+            st.error("You do not have permission to sync GA4 data.")
+            return
         try:
             property_id = property_map[sync_org]
             daily_rows = fetch_ga4_daily_active_users(property_id)
@@ -312,7 +321,9 @@ def _render_manual_entry_tab():
         submitted = st.form_submit_button("Save Activity")
 
     if submitted:
-        if not organization.strip():
+        if not can_manage_incidents():
+            st.error("You do not have permission to add GA4 activity records.")
+        elif not organization.strip():
             st.warning("Organization is required.")
         else:
             try:
@@ -368,15 +379,18 @@ def _render_bulk_import_tab():
                 st.dataframe(preview_df.head(5), width="stretch", hide_index=True)
 
                 if st.button("Import Parsed Rows", type="primary", key="ga4_import_parsed_rows"):
-                    try:
-                        save_ga4_activity_records(records)
-                        st.success(f"Imported {len(records)} GA4 rows.")
-                        st.rerun()
-                    except RuntimeError as exc:
-                        st.warning(str(exc))
-                    except Exception as exc:
-                        st.error("Failed to import GA4 CSV.")
-                        st.exception(exc)
+                    if not can_manage_incidents():
+                        st.error("You do not have permission to import GA4 activity records.")
+                    else:
+                        try:
+                            save_ga4_activity_records(records)
+                            st.success(f"Imported {len(records)} GA4 rows.")
+                            st.rerun()
+                        except RuntimeError as exc:
+                            st.warning(str(exc))
+                        except Exception as exc:
+                            st.error("Failed to import GA4 CSV.")
+                            st.exception(exc)
             else:
                 st.warning("The uploaded file did not contain any usable rows.")
         except Exception as exc:
@@ -485,6 +499,10 @@ def render(filtered_df=None):
     )
 
     if st.button("Save Excluded Changes", key="ga4_save_excluded_changes"):
+        if not can_manage_incidents():
+            st.error("You do not have permission to modify GA4 activity records.")
+            return
+
         changed_mask = edited_df["excluded"] != editor_df["excluded"]
         changed = edited_df[changed_mask]
 

@@ -1,4 +1,5 @@
 import base64
+import html
 from pathlib import Path
 
 import streamlit as st
@@ -37,6 +38,10 @@ CHART_LAYOUT = dict(
 
 
 def public_kpi_card(title, value, note, color, icon="📌"):
+    title = html.escape(str(title))
+    value = html.escape(str(value))
+    note = html.escape(str(note))
+
     st.markdown(
         f"""
         <div style="
