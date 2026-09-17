@@ -1,4 +1,5 @@
 import io
+import math
 import pandas as pd
 import streamlit as st
 
@@ -12,6 +13,7 @@ from utils.supabase_db import (
     save_ga4_property_mapping,
     delete_ga4_property_mapping,
     update_ga4_activity_excluded,
+    delete_ga4_activity_records,
     GA4_DAILY_TOTAL_HOUR,
 )
 from utils.ga4_client import fetch_ga4_daily_active_users, fetch_ga4_hourly_active_users
@@ -458,8 +460,35 @@ def render(filtered_df=None):
     st.divider()
     st.subheader("Stored GA4 Activity")
 
-    search = st.text_input("Search activity")
     activity_df = load_ga4_activity_records()
+
+    if activity_df is not None and not activity_df.empty:
+        with st.expander("Clear Stored Activity"):
+            stored_orgs = sorted(activity_df["organization"].dropna().unique().tolist())
+            clear_scope = st.selectbox(
+                "Organization to clear",
+                ["All organizations"] + stored_orgs,
+                key="ga4_clear_org"
+            )
+            confirm_clear = st.checkbox(
+                "Confirm permanent delete of the selected GA4 activity",
+                key="ga4_clear_confirm"
+            )
+
+            if st.button("Clear Stored Activity", key="ga4_clear_button") and confirm_clear:
+                if not can_manage_incidents():
+                    st.error("You do not have permission to clear GA4 activity records.")
+                else:
+                    try:
+                        org_to_clear = None if clear_scope == "All organizations" else clear_scope
+                        delete_ga4_activity_records(org_to_clear)
+                        st.success(f"Cleared GA4 activity for {clear_scope}. You can re-sync now.")
+                        st.rerun()
+                    except Exception as exc:
+                        st.error("Failed to clear GA4 activity.")
+                        st.exception(exc)
+
+    search = st.text_input("Search activity")
 
     if activity_df is None or activity_df.empty:
         st.info("No GA4 activity has been stored yet, or the GA4 table has not been created.")
@@ -489,13 +518,64 @@ def render(filtered_df=None):
     editable_columns = {"excluded"}
     display_columns = [col for col in editor_df.columns if col != "id"]
 
+    total_rows = len(editor_df)
+
+    page_size_col, nav_col, caption_col = st.columns([1, 2, 3])
+
+    with page_size_col:
+        page_size = st.selectbox(
+            "Rows per page",
+            [25, 50, 100, 200],
+            index=1,
+            key="ga4_activity_page_size"
+        )
+
+    total_pages = max(1, math.ceil(total_rows / page_size))
+
+    if "ga4_activity_page" not in st.session_state:
+        st.session_state["ga4_activity_page"] = 1
+
+    st.session_state["ga4_activity_page"] = min(
+        max(1, st.session_state["ga4_activity_page"]),
+        total_pages
+    )
+
+    with nav_col:
+        prev_col, next_col = st.columns(2)
+        with prev_col:
+            if st.button(
+                "◀ Prev",
+                key="ga4_activity_prev",
+                disabled=st.session_state["ga4_activity_page"] <= 1,
+                width="stretch"
+            ):
+                st.session_state["ga4_activity_page"] -= 1
+                st.rerun()
+        with next_col:
+            if st.button(
+                "Next ▶",
+                key="ga4_activity_next",
+                disabled=st.session_state["ga4_activity_page"] >= total_pages,
+                width="stretch"
+            ):
+                st.session_state["ga4_activity_page"] += 1
+                st.rerun()
+
+    page = st.session_state["ga4_activity_page"]
+
+    with caption_col:
+        st.caption(f"Page {page} of {total_pages} · {total_rows} row(s)")
+
+    start = (page - 1) * page_size
+    page_df = editor_df.iloc[start:start + page_size].reset_index(drop=True)
+
     edited_df = st.data_editor(
-        editor_df,
+        page_df,
         width="stretch",
         hide_index=True,
         column_order=display_columns,
-        disabled=[col for col in editor_df.columns if col not in editable_columns],
-        key="ga4_activity_editor"
+        disabled=[col for col in page_df.columns if col not in editable_columns],
+        key=f"ga4_activity_editor_page_{page}_{page_size}"
     )
 
     if st.button("Save Excluded Changes", key="ga4_save_excluded_changes"):
@@ -503,7 +583,7 @@ def render(filtered_df=None):
             st.error("You do not have permission to modify GA4 activity records.")
             return
 
-        changed_mask = edited_df["excluded"] != editor_df["excluded"]
+        changed_mask = edited_df["excluded"] != page_df["excluded"]
         changed = edited_df[changed_mask]
 
         if changed.empty:

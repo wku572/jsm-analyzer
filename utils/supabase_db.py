@@ -334,6 +334,20 @@ def update_ga4_activity_excluded(row_id, excluded):
     ).eq("id", row_id).execute()
 
 
+def delete_ga4_activity_records(organization=None):
+    """Clears stored GA4 activity rows. With `organization`, only that
+    organization's rows are removed; otherwise every row is."""
+    client = get_scoped_client()
+    query = client.table(GA4_ACTIVITY_TABLE).delete()
+
+    if organization:
+        query = query.eq("organization", organization)
+    else:
+        query = query.neq("id", 0)
+
+    query.execute()
+
+
 def load_ga4_activity_records():
     client = get_scoped_client()
 
