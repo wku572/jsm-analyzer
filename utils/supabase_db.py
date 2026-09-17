@@ -1,7 +1,7 @@
 import math
 import pandas as pd
-import streamlit as st
-from supabase import create_client
+
+from utils.db_client import get_scoped_client
 
 
 CURRENT_TABLE = "current_snapshot"
@@ -18,12 +18,6 @@ TICKET_EMBEDDINGS_BATCH_SIZE = 200
 def _is_missing_table_error(exc):
     message = str(exc)
     return "PGRST205" in message or "Could not find the table" in message
-
-
-def get_client():
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["service_role_key"]
-    return create_client(url, key)
 
 
 def make_json_safe_value(value):
@@ -66,7 +60,7 @@ def clean_dataframe_for_json(df):
 
 
 def save_current_snapshot(df):
-    client = get_client()
+    client = get_scoped_client()
 
     records = clean_dataframe_for_json(df)
 
@@ -78,7 +72,7 @@ def save_current_snapshot(df):
 
 
 def load_current_snapshot():
-    client = get_client()
+    client = get_scoped_client()
 
     all_rows = []
     batch_size = 1000
@@ -115,7 +109,7 @@ def load_current_snapshot():
 
 
 def save_historical_snapshot(df):
-    client = get_client()
+    client = get_scoped_client()
 
     clean_df = df.copy()
 
@@ -188,7 +182,7 @@ def save_historical_snapshot(df):
     client.table(HISTORY_TABLE).insert(payload).execute()
 
 def load_historical_snapshots():
-    client = get_client()
+    client = get_scoped_client()
 
     response = (
         client.table(HISTORY_TABLE)
@@ -205,12 +199,12 @@ def load_historical_snapshots():
     return pd.DataFrame(rows)
 
 def clear_current_snapshot():
-    client = get_client()
+    client = get_scoped_client()
     client.table(CURRENT_TABLE).delete().neq("id", 0).execute()
 
 
 def save_incident_impact_assessment(payload):
-    client = get_client()
+    client = get_scoped_client()
     response = client.table(INCIDENT_IMPACT_TABLE).insert(payload).execute()
 
     rows = response.data
@@ -218,17 +212,17 @@ def save_incident_impact_assessment(payload):
 
 
 def update_incident_impact_assessment(record_id, payload):
-    client = get_client()
+    client = get_scoped_client()
     client.table(INCIDENT_IMPACT_TABLE).update(payload).eq("id", record_id).execute()
 
 
 def delete_incident_impact_assessment(record_id):
-    client = get_client()
+    client = get_scoped_client()
     client.table(INCIDENT_IMPACT_TABLE).delete().eq("id", record_id).execute()
 
 
 def load_incident_impact_assessments():
-    client = get_client()
+    client = get_scoped_client()
 
     response = (
         client.table(INCIDENT_IMPACT_TABLE)
@@ -299,7 +293,7 @@ def _ga4_normalize_activity_frame(records):
 
 
 def save_ga4_activity_records(records):
-    client = get_client()
+    client = get_scoped_client()
     df = _ga4_normalize_activity_frame(records)
 
     if df.empty:
@@ -334,14 +328,14 @@ def save_ga4_activity_records(records):
 
 
 def update_ga4_activity_excluded(row_id, excluded):
-    client = get_client()
+    client = get_scoped_client()
     client.table(GA4_ACTIVITY_TABLE).update(
         {"excluded": bool(excluded)}
     ).eq("id", row_id).execute()
 
 
 def load_ga4_activity_records():
-    client = get_client()
+    client = get_scoped_client()
 
     page_size = GA4_ACTIVITY_BATCH_SIZE
     rows = []
@@ -599,7 +593,7 @@ def calculate_ga4_rolling_mau_baseline(organization, incident_date=None, lookbac
 
 
 def load_ga4_property_map():
-    client = get_client()
+    client = get_scoped_client()
 
     try:
         response = (
@@ -625,7 +619,7 @@ def load_ga4_property_map():
 
 
 def save_ga4_property_mapping(organization, property_id):
-    client = get_client()
+    client = get_scoped_client()
 
     organization = str(organization).strip()
     property_id = str(property_id).strip()
@@ -645,7 +639,7 @@ def save_ga4_property_mapping(organization, property_id):
 
 
 def delete_ga4_property_mapping(organization):
-    client = get_client()
+    client = get_scoped_client()
     client.table(GA4_PROPERTY_MAP_TABLE).delete().eq(
         "organization", str(organization).strip()
     ).execute()
@@ -659,7 +653,7 @@ def save_ticket_embeddings(rows):
     if not rows:
         return
 
-    client = get_client()
+    client = get_scoped_client()
 
     payload = [
         {
@@ -688,7 +682,7 @@ def save_ticket_embeddings(rows):
 
 
 def match_ticket_embeddings(query_embedding, match_count=5):
-    client = get_client()
+    client = get_scoped_client()
 
     try:
         response = client.rpc(
@@ -710,7 +704,7 @@ def match_ticket_embeddings(query_embedding, match_count=5):
 
 
 def get_ticket_embeddings_count():
-    client = get_client()
+    client = get_scoped_client()
 
     try:
         response = (

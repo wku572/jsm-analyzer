@@ -8,10 +8,10 @@ def safe_render(page_name, render_func, data):
         render_func(data)
 
     except Exception as e:
-        username = st.session_state.get("username", "")
+        user_email = st.session_state.get("user_email", "")
 
         write_audit_log(
-            username,
+            user_email,
             get_user_role(),
             "PAGE_RENDER_ERROR",
             f"page={page_name}, error={str(e)}"

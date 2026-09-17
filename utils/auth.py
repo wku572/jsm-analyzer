@@ -2,9 +2,9 @@ import logging
 import time
 
 import streamlit as st
-from supabase import create_client
 from streamlit_cookies_controller import CookieController
 
+from utils.db_client import get_anon_client, get_scoped_client, bind_session, clear_session
 from utils.logger import write_audit_log, count_recent_login_failures
 
 
@@ -18,19 +18,13 @@ MAX_LOGIN_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 15
 
 
-def get_client():
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["service_role_key"]
-    return create_client(url, key)
-
-
 def get_cookie_controller():
     return CookieController()
 
 
 def get_role_by_email(email):
     try:
-        client = get_client()
+        client = get_scoped_client()
         response = (
             client.table(USER_ROLES_TABLE)
             .select("role")
@@ -71,7 +65,7 @@ def restore_session_from_cookie():
         return False
 
     try:
-        client = get_client()
+        client = get_anon_client()
         session_response = client.auth.set_session(
             access_token,
             refresh_token
@@ -81,6 +75,12 @@ def restore_session_from_cookie():
 
         if not user or not user.email:
             return False
+
+        # Cache this now-authenticated client before the role lookup below,
+        # so it runs (and everything else for the rest of this session
+        # runs) as this user's own JWT - RLS enforces access as
+        # `authenticated`, not the old blanket service-role bypass.
+        bind_session(client)
 
         email = user.email
         role = get_role_by_email(email)
@@ -99,7 +99,7 @@ def restore_session_from_cookie():
 
 
 def authenticate_user(email, password, keep_signed_in=True):
-    client = get_client()
+    client = get_anon_client()
 
     auth_response = client.auth.sign_in_with_password(
         {
@@ -109,6 +109,8 @@ def authenticate_user(email, password, keep_signed_in=True):
     )
 
     if auth_response.user and auth_response.session:
+        bind_session(client)
+
         role = get_role_by_email(email)
 
         st.session_state.authenticated = True
@@ -236,6 +238,7 @@ def logout():
     st.session_state.username = ""
     st.session_state.user_email = ""
     st.session_state.user_role = "slt_viewer"
+    clear_session()
 
     # Give the cookie-removal component's JS round-trip a moment to actually
     # reach the browser before tearing the script down - rerunning
