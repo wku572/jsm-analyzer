@@ -67,8 +67,6 @@ def render(filtered_df):
     df["Created Date"] = df["Created Local"].dt.normalize()
 
     today = pd.Timestamp.now(tz=LOCAL_TZ).normalize()
-    week_start = today - pd.Timedelta(days=today.weekday())
-    week_end = week_start + pd.Timedelta(days=6)
 
     trend_level = st.radio(
         "Select trend level",
@@ -81,11 +79,36 @@ def render(filtered_df):
         period_label = f"Today ({today.date()})"
 
     elif trend_level == "This Week":
+        if "trend_week_offset" not in st.session_state:
+            st.session_state["trend_week_offset"] = 0
+
+        nav_cols = st.columns([1, 1, 2])
+        with nav_cols[0]:
+            if st.button("◀ Previous Week", key="trend_week_prev"):
+                st.session_state["trend_week_offset"] += 1
+        with nav_cols[1]:
+            if st.button(
+                "Next Week ▶",
+                key="trend_week_next",
+                disabled=st.session_state["trend_week_offset"] <= 0
+            ):
+                st.session_state["trend_week_offset"] -= 1
+        with nav_cols[2]:
+            if st.session_state["trend_week_offset"] > 0:
+                if st.button("Jump to This Week", key="trend_week_reset"):
+                    st.session_state["trend_week_offset"] = 0
+
+        offset = st.session_state["trend_week_offset"]
+        week_start = today - pd.Timedelta(days=today.weekday()) - pd.Timedelta(weeks=offset)
+        week_end = week_start + pd.Timedelta(days=6)
+
         df = df[
             (df["Created Date"] >= week_start) &
             (df["Created Date"] <= week_end)
         ]
-        period_label = f"This Week ({week_start.date()} to {week_end.date()})"
+
+        week_label = f"Week of {week_start.date()} to {week_end.date()}"
+        period_label = f"{week_label} (current)" if offset == 0 else week_label
 
     elif trend_level == "Monthly":
         df["Trend Period"] = df["Created Local"].dt.to_period("M").astype(str)
