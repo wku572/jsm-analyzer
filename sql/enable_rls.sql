@@ -152,8 +152,8 @@ with check (public.has_role(array['support_admin', 'admin']));
 
 
 -- ---------------------------------------------------------------------------
--- incident_impact_assessments - viewable by any logged-in user; writes
--- restricted to support_admin/admin/engineer_pm, matching
+-- incident_impact_assessments - the whole feature (view and write) is
+-- restricted to the support_admin role only, matching
 -- can_manage_incidents() in utils/auth.py.
 -- ---------------------------------------------------------------------------
 
@@ -161,97 +161,101 @@ alter table public.incident_impact_assessments enable row level security;
 grant select, insert, update, delete on public.incident_impact_assessments to authenticated;
 
 drop policy if exists incident_impact_select_authenticated on public.incident_impact_assessments;
-create policy incident_impact_select_authenticated
+drop policy if exists incident_impact_select_support_admin on public.incident_impact_assessments;
+create policy incident_impact_select_support_admin
 on public.incident_impact_assessments for select
 to authenticated
-using (true);
+using (public.has_role(array['support_admin']));
 
 drop policy if exists incident_impact_insert_managers on public.incident_impact_assessments;
 create policy incident_impact_insert_managers
 on public.incident_impact_assessments for insert
 to authenticated
-with check (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+with check (public.has_role(array['support_admin']));
 
 drop policy if exists incident_impact_update_managers on public.incident_impact_assessments;
 create policy incident_impact_update_managers
 on public.incident_impact_assessments for update
 to authenticated
-using (public.has_role(array['support_admin', 'admin', 'engineer_pm']))
-with check (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+using (public.has_role(array['support_admin']))
+with check (public.has_role(array['support_admin']));
 
 drop policy if exists incident_impact_delete_managers on public.incident_impact_assessments;
 create policy incident_impact_delete_managers
 on public.incident_impact_assessments for delete
 to authenticated
-using (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+using (public.has_role(array['support_admin']));
 
 
 -- ---------------------------------------------------------------------------
--- ga4_activity - same shape as incident_impact_assessments. Writes use
--- upsert, so the update policy needs a matching with check for the
--- ON CONFLICT DO UPDATE path.
+-- ga4_activity - same shape as incident_impact_assessments, restricted to
+-- support_admin only. Writes use upsert, so the update policy needs a
+-- matching with check for the ON CONFLICT DO UPDATE path.
 -- ---------------------------------------------------------------------------
 
 alter table public.ga4_activity enable row level security;
 grant select, insert, update, delete on public.ga4_activity to authenticated;
 
 drop policy if exists ga4_activity_select_authenticated on public.ga4_activity;
-create policy ga4_activity_select_authenticated
+drop policy if exists ga4_activity_select_support_admin on public.ga4_activity;
+create policy ga4_activity_select_support_admin
 on public.ga4_activity for select
 to authenticated
-using (true);
+using (public.has_role(array['support_admin']));
 
 drop policy if exists ga4_activity_insert_managers on public.ga4_activity;
 create policy ga4_activity_insert_managers
 on public.ga4_activity for insert
 to authenticated
-with check (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+with check (public.has_role(array['support_admin']));
 
 drop policy if exists ga4_activity_update_managers on public.ga4_activity;
 create policy ga4_activity_update_managers
 on public.ga4_activity for update
 to authenticated
-using (public.has_role(array['support_admin', 'admin', 'engineer_pm']))
-with check (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+using (public.has_role(array['support_admin']))
+with check (public.has_role(array['support_admin']));
 
 drop policy if exists ga4_activity_delete_managers on public.ga4_activity;
 create policy ga4_activity_delete_managers
 on public.ga4_activity for delete
 to authenticated
-using (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+using (public.has_role(array['support_admin']));
 
 
 -- ---------------------------------------------------------------------------
--- ga4_property_map - also upserted (on_conflict on organization).
+-- ga4_property_map - also upserted (on_conflict on organization), also
+-- restricted to support_admin only.
 -- ---------------------------------------------------------------------------
 
 alter table public.ga4_property_map enable row level security;
 grant select, insert, update, delete on public.ga4_property_map to authenticated;
 
 drop policy if exists ga4_map_select_authenticated on public.ga4_property_map;
-create policy ga4_map_select_authenticated
+drop policy if exists ga4_map_select_support_admin on public.ga4_property_map;
+create policy ga4_map_select_support_admin
 on public.ga4_property_map for select
 to authenticated
-using (true);
+using (public.has_role(array['support_admin']));
 
 drop policy if exists ga4_map_insert_managers on public.ga4_property_map;
 create policy ga4_map_insert_managers
 on public.ga4_property_map for insert
 to authenticated
-with check (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+with check (public.has_role(array['support_admin']));
 
 drop policy if exists ga4_map_update_managers on public.ga4_property_map;
 create policy ga4_map_update_managers
 on public.ga4_property_map for update
 to authenticated
-using (public.has_role(array['support_admin', 'admin', 'engineer_pm']))
-with check (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+using (public.has_role(array['support_admin']))
+with check (public.has_role(array['support_admin']));
 
 drop policy if exists ga4_map_delete_managers on public.ga4_property_map;
 create policy ga4_map_delete_managers
 on public.ga4_property_map for delete
 to authenticated
-using (public.has_role(array['support_admin', 'admin', 'engineer_pm']));
+using (public.has_role(array['support_admin']));
 
 
 -- ---------------------------------------------------------------------------

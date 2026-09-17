@@ -307,8 +307,7 @@ def can_view_assignee_workload():
 
 
 def can_manage_incidents():
-    return get_user_role() in [
-        "support_admin",
-        "admin",
-        "engineer_pm"
-    ]
+    """Gates both viewing and writing Incident Impact Assessment and GA4
+    Activity Baseline - restricted to the support_admin role only, not
+    admin/engineer_pm/slt_viewer."""
+    return get_user_role() == "support_admin"

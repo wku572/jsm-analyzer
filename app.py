@@ -25,6 +25,7 @@ from utils.auth import (
     can_export_data,
     can_view_raw_data,
     can_view_assignee_workload,
+    can_manage_incidents,
     is_support_admin
 )
 
@@ -220,13 +221,15 @@ with st.sidebar:
         "Label / Category Analysis",
         "Issue Type Analysis",
         "Resolution Time Analysis",
-        "Incident Impact Assessment",
-        "GA4 Activity Baseline",
         "Trend Analysis",
     ]
 
     if can_view_assignee_workload():
         menu_items.insert(3, "Assignee Workload")
+
+    if can_manage_incidents():
+        menu_items.append("Incident Impact Assessment")
+        menu_items.append("GA4 Activity Baseline")
 
     if is_support_admin():
         menu_items.append("Support Triage")
@@ -501,18 +504,28 @@ elif analysis_view == "Resolution Time Analysis":
     )
 
 elif analysis_view == "Incident Impact Assessment":
-    safe_render(
-        "Incident Impact Assessment",
-        incident_impact.render,
-        filtered_df
-    )
+    if can_manage_incidents():
+        safe_render(
+            "Incident Impact Assessment",
+            incident_impact.render,
+            filtered_df
+        )
+    else:
+        st.warning(
+            "You do not have permission to view Incident Impact Assessment."
+        )
 
 elif analysis_view == "GA4 Activity Baseline":
-    safe_render(
-        "GA4 Activity Baseline",
-        ga4_activity.render,
-        filtered_df
-    )
+    if can_manage_incidents():
+        safe_render(
+            "GA4 Activity Baseline",
+            ga4_activity.render,
+            filtered_df
+        )
+    else:
+        st.warning(
+            "You do not have permission to view GA4 Activity Baseline."
+        )
 
 elif analysis_view == "Trend Analysis":
     safe_render(
