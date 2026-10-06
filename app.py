@@ -242,7 +242,7 @@ with st.sidebar:
         menu_items
     )
 
-    max_results = 2000
+    max_results = 5000
     auto_refresh = False
     refresh_minutes = 30
 
@@ -254,7 +254,7 @@ with st.sidebar:
             "Maximum tickets to fetch",
             min_value=100,
             max_value=5000,
-            value=2000,
+            value=5000,
             step=100
         )
 
