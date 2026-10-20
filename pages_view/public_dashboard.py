@@ -242,7 +242,7 @@ def render():
 
     st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         public_kpi_card(
@@ -271,18 +271,44 @@ def render():
             "🟢"
         )
 
-    c4, c5, c6, c7, c8 = st.columns(5)
-
     with c4:
+        public_kpi_card(
+            "Overdue > 1 Month",
+            overdue_1m,
+            "Open tickets older than 30 days",
+            DANGER,
+            "🔴"
+        )
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="
+            font-size:12px;
+            font-weight:800;
+            color:#64748b;
+            text-transform:uppercase;
+            letter-spacing:.06em;
+            margin-bottom:10px;
+        ">
+            Open Ticket Breakdown
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    c5, c6, c7, c8 = st.columns(4)
+
+    with c5:
         public_kpi_card(
             "In Progress",
             in_progress,
             "Being worked on",
-            INFO_BLUE,
+            PRIMARY,
             "🔧"
         )
 
-    with c5:
+    with c6:
         public_kpi_card(
             "Waiting for Customer",
             waiting_customer,
@@ -291,31 +317,22 @@ def render():
             "🟡"
         )
 
-    with c6:
+    with c7:
         public_kpi_card(
             "Waiting for Support",
             waiting_support,
             "Blocked on support",
-            INFO_BLUE,
+            "#0ea5e9",
             "🔷"
         )
 
-    with c7:
+    with c8:
         public_kpi_card(
             "Waiting for Approval",
             waiting_approval,
             "Blocked on approval",
             "#7c3aed",
             "🟣"
-        )
-
-    with c8:
-        public_kpi_card(
-            "Overdue > 1 Month",
-            overdue_1m,
-            "Open tickets older than 30 days",
-            DANGER,
-            "🔴"
         )
 
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
