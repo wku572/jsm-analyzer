@@ -11,10 +11,16 @@ SUCCESS = "#22C55E"
 WARNING = "#EF4444"
 
 STATUS_COLORS = {
-    "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Open": ACCENT,
     "Resolved": SUCCESS
 }
+
+OPEN_SUB_STATUSES = [
+    "In Progress",
+    "Waiting for customer",
+    "Waiting for support",
+    "Waiting for approval"
+]
 
 LABEL_COLORS = PRIMARY
 
@@ -209,10 +215,12 @@ def render(filtered_df):
 
     st.subheader("📋 Category Summary Table")
 
+    open_label_df = label_df[label_df["Status Category"] == "Open"]
+
     table = (
-        label_df.pivot_table(
+        open_label_df.pivot_table(
             index="Issue Category",
-            columns="Status Category",
+            columns="Status",
             values="Key",
             aggfunc="count",
             fill_value=0
@@ -220,15 +228,19 @@ def render(filtered_df):
         .reset_index()
     )
 
-    for col in ["In Progress", "Pending", "Resolved"]:
+    for col in OPEN_SUB_STATUSES:
         if col not in table.columns:
             table[col] = 0
 
-    table["Total"] = (
-        table["In Progress"] +
-        table["Pending"] +
-        table["Resolved"]
+    resolved_counts = (
+        label_df[label_df["Status Category"] == "Resolved"]
+        .groupby("Issue Category")["Key"]
+        .count()
     )
+    table["Resolved"] = table["Issue Category"].map(resolved_counts).fillna(0).astype(int)
+
+    table["Open Tickets"] = table[OPEN_SUB_STATUSES].sum(axis=1)
+    table["Total"] = table["Open Tickets"] + table["Resolved"]
 
     table = table.sort_values("Total", ascending=False)
 
@@ -236,9 +248,9 @@ def render(filtered_df):
         table[
             [
                 "Issue Category",
-                "In Progress",
-                "Pending",
+                *OPEN_SUB_STATUSES,
                 "Resolved",
+                "Open Tickets",
                 "Total"
             ]
         ],

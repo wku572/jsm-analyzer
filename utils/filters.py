@@ -15,8 +15,8 @@ def apply_filters(df):
         with c1:
             selected_status = st.multiselect(
                 "Status",
-                ["In Progress", "Pending", "Resolved"],
-                default=["In Progress", "Pending", "Resolved"]
+                sorted(df["Status"].dropna().unique()),
+                default=list(sorted(df["Status"].dropna().unique()))
             )
 
         with c2:
@@ -43,7 +43,7 @@ def apply_filters(df):
     filtered_df = df.copy()
 
     if selected_status:
-        filtered_df = filtered_df[filtered_df["Status Category"].isin(selected_status)]
+        filtered_df = filtered_df[filtered_df["Status"].isin(selected_status)]
 
     if selected_priority:
         filtered_df = filtered_df[filtered_df["Priority"].isin(selected_priority)]

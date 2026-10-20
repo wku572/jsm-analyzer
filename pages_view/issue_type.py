@@ -8,9 +8,19 @@ SUCCESS = "#22C55E"     # green
 
 STATUS_COLORS = {
     "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Waiting for customer": ACCENT,
+    "Waiting for support": "#2563eb",
+    "Waiting for approval": "#7c3aed",
     "Resolved": SUCCESS
 }
+
+OPEN_SUB_STATUSES = [
+    "In Progress",
+    "Waiting for customer",
+    "Waiting for support",
+    "Waiting for approval"
+]
+
 
 def render(filtered_df):
 
@@ -20,35 +30,38 @@ def render(filtered_df):
         st.info("No tickets found for the selected filters.")
         return
 
-    issue_summary = filtered_df.pivot_table(
+    open_df = filtered_df[filtered_df["Status Category"] == "Open"]
+
+    issue_summary = open_df.pivot_table(
         index="Issue Type",
-        columns="Status Category",
+        columns="Status",
         values="Key",
         aggfunc="count",
         fill_value=0
     ).reset_index()
 
-    for col in ["In Progress", "Pending", "Resolved"]:
+    for col in OPEN_SUB_STATUSES:
         if col not in issue_summary.columns:
             issue_summary[col] = 0
 
-    issue_summary["Open Tickets"] = (
-        issue_summary["In Progress"] + issue_summary["Pending"]
+    resolved_counts = (
+        filtered_df[filtered_df["Status Category"] == "Resolved"]
+        .groupby("Issue Type")["Key"]
+        .count()
     )
+    issue_summary["Resolved"] = issue_summary["Issue Type"].map(resolved_counts).fillna(0).astype(int)
 
-    issue_summary["Total"] = (
-        issue_summary["In Progress"] +
-        issue_summary["Pending"] +
-        issue_summary["Resolved"]
-    )
+    issue_summary["Open Tickets"] = issue_summary[OPEN_SUB_STATUSES].sum(axis=1)
+
+    issue_summary["Total"] = issue_summary["Open Tickets"] + issue_summary["Resolved"]
 
     issue_summary = issue_summary.sort_values("Total", ascending=False)
 
     fig = px.bar(
         issue_summary,
         x="Issue Type",
-        y=["In Progress", "Pending", "Resolved"],
-        title="Tickets by Issue Type and Status Category",
+        y=OPEN_SUB_STATUSES + ["Resolved"],
+        title="Tickets by Issue Type and Status",
         barmode="group",
         color_discrete_map=STATUS_COLORS
     )

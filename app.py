@@ -77,22 +77,15 @@ def map_status_category(status):
 
     if status in [
         "Resolved",
-        "Completed",
         "Closed",
-        "Canceled",
-        "Cancelled",
-        "Done"
+        "Canceled"
     ]:
         return "Resolved"
 
-    elif status in [
-        "Waiting for customer",
-        "Pending"
-    ]:
-        return "Pending"
-
     else:
-        return "In Progress"
+        # In Progress, Waiting for customer/support/approval, and any
+        # unrecognized future status all count as still needing attention.
+        return "Open"
 
 
 def prepare_data(df):
@@ -141,7 +134,7 @@ def prepare_data(df):
 
     df = df[
         df["Status Category"].isin(
-            ["In Progress", "Pending", "Resolved"]
+            ["Open", "Resolved"]
         )
     ]
 

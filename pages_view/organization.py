@@ -8,9 +8,19 @@ SUCCESS = "#22C55E"     # green
 
 STATUS_COLORS = {
     "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Waiting for customer": ACCENT,
+    "Waiting for support": "#2563eb",
+    "Waiting for approval": "#7c3aed",
     "Resolved": SUCCESS
 }
+
+OPEN_SUB_STATUSES = [
+    "In Progress",
+    "Waiting for customer",
+    "Waiting for support",
+    "Waiting for approval"
+]
+
 
 def render(filtered_df):
 
@@ -20,39 +30,42 @@ def render(filtered_df):
         st.info("No tickets found for the selected filters.")
         return
 
-    org_summary = filtered_df.pivot_table(
+    open_df = filtered_df[filtered_df["Status Category"] == "Open"]
+
+    org_summary = open_df.pivot_table(
         index="Organizations",
-        columns="Status Category",
+        columns="Status",
         values="Key",
         aggfunc="count",
         fill_value=0
     ).reset_index()
 
-    for col in ["In Progress", "Pending", "Resolved"]:
+    for col in OPEN_SUB_STATUSES:
         if col not in org_summary.columns:
             org_summary[col] = 0
 
-    org_summary["Open Tickets"] = org_summary["In Progress"] + org_summary["Pending"]
-
-    org_summary["Overdue > 1 Month"] = filtered_df[
-        filtered_df["Status Category"].isin(["In Progress", "Pending"])
-    ].groupby("Organizations")["Ticket Age"].apply(lambda x: (x > 30).sum()).reindex(
-        org_summary["Organizations"]
-    ).fillna(0).astype(int).values
-
-    org_summary["Total"] = (
-        org_summary["In Progress"] +
-        org_summary["Pending"] +
-        org_summary["Resolved"]
+    resolved_counts = (
+        filtered_df[filtered_df["Status Category"] == "Resolved"]
+        .groupby("Organizations")["Key"]
+        .count()
     )
+    org_summary["Resolved"] = org_summary["Organizations"].map(resolved_counts).fillna(0).astype(int)
+
+    org_summary["Open Tickets"] = org_summary[OPEN_SUB_STATUSES].sum(axis=1)
+
+    org_summary["Overdue > 1 Month"] = open_df.groupby("Organizations")["Ticket Age"].apply(
+        lambda x: (x > 30).sum()
+    ).reindex(org_summary["Organizations"]).fillna(0).astype(int).values
+
+    org_summary["Total"] = org_summary["Open Tickets"] + org_summary["Resolved"]
 
     org_summary = org_summary.sort_values("Total", ascending=False)
 
     fig = px.bar(
         org_summary,
         x="Organizations",
-        y=["In Progress", "Pending", "Resolved"],
-        title="Organization Tickets by Status Category",
+        y=OPEN_SUB_STATUSES + ["Resolved"],
+        title="Organization Tickets by Status",
         barmode="group",
         color_discrete_map=STATUS_COLORS
     )
@@ -66,8 +79,7 @@ def render(filtered_df):
         org_summary[
             [
                 "Organizations",
-                "In Progress",
-                "Pending",
+                *OPEN_SUB_STATUSES,
                 "Resolved",
                 "Open Tickets",
                 "Overdue > 1 Month",

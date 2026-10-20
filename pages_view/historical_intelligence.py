@@ -11,20 +11,30 @@ ACCENT = "#F28C28"      # orange
 SUCCESS = "#22C55E"     # green
 
 STATUS_COLORS = {
-    "in_progress": PRIMARY,
-    "pending": ACCENT,
-    "resolved": SUCCESS
+    "Open": ACCENT,
+    "Resolved": SUCCESS
 }
 
 ACTIVE_BACKLOG_COLOR = ACCENT
 AGING_COLORS = {
-    "overdue_1_month": "#EAB308",  # amber
-    "overdue_2_months": "#DC2626"  # red
+    "Overdue > 1 Month": "#EAB308",  # amber
+    "Overdue > 2 Months": "#DC2626"  # red
 }
 RISK_COLORS = {
-    "high_priority_open": "#F59E0B",  # orange-500
-    "unassigned_open": "#EF4444"      # red-500
+    "High Priority Open": "#F59E0B",  # orange-500
+    "Unassigned Open": "#EF4444"      # red-500
 }
+
+
+# Jira's status rename split the old "pending" bucket into In Progress plus
+# three waiting_for_* buckets, and froze several old snapshot columns at 0
+# from that point forward while the matching new columns were 0 by column
+# default before it (they didn't exist yet). Summing an old+new pair like
+# this is seamless across the cutover without needing to know its date:
+# whichever side of the cutover a row is on, exactly one half is real and
+# the other is 0.
+def _combined(row, *columns):
+    return sum(int(row.get(col, 0) or 0) for col in columns)
 
 def render(data=None):
     st.markdown("# 📈 Historical Intelligence")
@@ -53,6 +63,31 @@ def render(data=None):
         st.info("No valid historical snapshot timestamps found.")
         return
 
+    # Build continuity columns that read correctly whether a given snapshot
+    # was taken before or after the Jira status-rename cutover.
+    hist_df["Open"] = hist_df.apply(
+        lambda r: _combined(
+            r, "in_progress", "pending",
+            "waiting_for_customer", "waiting_for_support", "waiting_for_approval"
+        ),
+        axis=1
+    )
+    hist_df["Open Backlog"] = hist_df.apply(
+        lambda r: _combined(r, "active_backlog", "open_total"), axis=1
+    )
+    hist_df["Overdue > 1 Month"] = hist_df.apply(
+        lambda r: _combined(r, "overdue_1_month", "open_overdue_1_month"), axis=1
+    )
+    hist_df["Overdue > 2 Months"] = hist_df.apply(
+        lambda r: _combined(r, "overdue_2_months", "open_overdue_2_months"), axis=1
+    )
+    hist_df["High Priority Open"] = hist_df.apply(
+        lambda r: _combined(r, "high_priority_open", "open_high_priority"), axis=1
+    )
+    hist_df["Unassigned Open"] = hist_df.apply(
+        lambda r: _combined(r, "unassigned_open", "open_unassigned"), axis=1
+    )
+
     latest = hist_df.iloc[-1]
 
     c1, c2, c3, c4 = st.columns(4)
@@ -75,9 +110,9 @@ def render(data=None):
 
     with c3:
         kpi_card(
-            "Latest Pending",
-            int(latest.get("pending", 0)),
-            "Waiting / dependency queue",
+            "Latest Open",
+            int(latest["Open"]),
+            "In Progress + Waiting for customer/support/approval",
             "🟡"
         )
 
@@ -99,9 +134,9 @@ def render(data=None):
 
     st.markdown("## 📊 Queue Evolution Over Time")
 
-    trend_df = hist_df.melt(
+    trend_df = hist_df.rename(columns={"resolved": "Resolved"}).melt(
         id_vars=["snapshot_timestamp"],
-        value_vars=["in_progress", "pending", "resolved"],
+        value_vars=["Open", "Resolved"],
         var_name="Status Category",
         value_name="Tickets"
     )
@@ -124,7 +159,7 @@ def render(data=None):
     fig2 = px.area(
         hist_df,
         x="snapshot_timestamp",
-        y="active_backlog",
+        y="Open Backlog",
         title="Active Backlog Trend",
         color_discrete_sequence=[ACTIVE_BACKLOG_COLOR]
     )
@@ -137,64 +172,48 @@ def render(data=None):
     with left:
         st.markdown("## 🚨 Aging Risk Trend")
 
-        aging_cols = [
-            col for col in ["overdue_1_month", "overdue_2_months"]
-            if col in hist_df.columns
-        ]
+        aging_df = hist_df.melt(
+            id_vars=["snapshot_timestamp"],
+            value_vars=["Overdue > 1 Month", "Overdue > 2 Months"],
+            var_name="Aging Category",
+            value_name="Tickets"
+        )
 
-        if aging_cols:
-            aging_df = hist_df.melt(
-                id_vars=["snapshot_timestamp"],
-                value_vars=aging_cols,
-                var_name="Aging Category",
-                value_name="Tickets"
-            )
+        fig3 = px.line(
+            aging_df,
+            x="snapshot_timestamp",
+            y="Tickets",
+            color="Aging Category",
+            markers=True,
+            title="Overdue Ticket Trend",
+            color_discrete_map=AGING_COLORS
+        )
 
-            fig3 = px.line(
-                aging_df,
-                x="snapshot_timestamp",
-                y="Tickets",
-                color="Aging Category",
-                markers=True,
-                title="Overdue Ticket Trend",
-                color_discrete_map=AGING_COLORS
-            )
-
-            fig3.update_layout(height=380)
-            st.plotly_chart(fig3, use_container_width=True)
-        else:
-            st.info("No aging trend data available.")
+        fig3.update_layout(height=380)
+        st.plotly_chart(fig3, use_container_width=True)
 
     with right:
         st.markdown("## ⚠️ Risk Indicators")
 
-        risk_cols = [
-            col for col in ["high_priority_open", "unassigned_open"]
-            if col in hist_df.columns
-        ]
+        risk_df = hist_df.melt(
+            id_vars=["snapshot_timestamp"],
+            value_vars=["High Priority Open", "Unassigned Open"],
+            var_name="Risk Type",
+            value_name="Tickets"
+        )
 
-        if risk_cols:
-            risk_df = hist_df.melt(
-                id_vars=["snapshot_timestamp"],
-                value_vars=risk_cols,
-                var_name="Risk Type",
-                value_name="Tickets"
-            )
+        fig4 = px.line(
+            risk_df,
+            x="snapshot_timestamp",
+            y="Tickets",
+            color="Risk Type",
+            markers=True,
+            title="Operational Risk Trend",
+            color_discrete_map=RISK_COLORS
+        )
 
-            fig4 = px.line(
-                risk_df,
-                x="snapshot_timestamp",
-                y="Tickets",
-                color="Risk Type",
-                markers=True,
-                title="Operational Risk Trend",
-                color_discrete_map=RISK_COLORS
-            )
-
-            fig4.update_layout(height=380)
-            st.plotly_chart(fig4, use_container_width=True)
-        else:
-            st.info("No risk indicator data available.")
+        fig4.update_layout(height=380)
+        st.plotly_chart(fig4, use_container_width=True)
 
     st.divider()
 
@@ -204,13 +223,13 @@ def render(data=None):
         "snapshot_timestamp",
         "total_tickets",
         "in_progress",
-        "pending",
+        "Open",
         "resolved",
-        "active_backlog",
-        "overdue_1_month",
-        "overdue_2_months",
-        "high_priority_open",
-        "unassigned_open"
+        "Open Backlog",
+        "Overdue > 1 Month",
+        "Overdue > 2 Months",
+        "High Priority Open",
+        "Unassigned Open"
     ]
 
     existing_cols = [
@@ -233,8 +252,7 @@ def render(data=None):
         last = hist_df.iloc[-1]
 
         backlog_change = int(
-            last.get("active_backlog", 0)
-            - first.get("active_backlog", 0)
+            last["Open Backlog"] - first["Open Backlog"]
         )
 
         resolved_change = int(
@@ -243,8 +261,7 @@ def render(data=None):
         )
 
         overdue_change = int(
-            last.get("overdue_1_month", 0)
-            - first.get("overdue_1_month", 0)
+            last["Overdue > 1 Month"] - first["Overdue > 1 Month"]
         )
 
         st.info(

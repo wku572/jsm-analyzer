@@ -14,7 +14,7 @@ def render(filtered_df):
     st.subheader("⏳ Aging Analysis")
 
     active_df = filtered_df[
-        filtered_df["Status Category"].isin(["In Progress", "Pending"])
+        filtered_df["Status Category"] == "Open"
     ]
 
     age_order = [

@@ -10,6 +10,7 @@ import pytz
 
 from utils.supabase_db import load_current_snapshot
 from utils.ui import PRIMARY, ACCENT, LOGO_PATH
+from jira_client import map_status_category
 
 
 # Brand colors - shared with the rest of the app (utils/ui.py) so the public
@@ -20,8 +21,7 @@ INFO_BLUE = "#2563eb"
 WARN_AMBER = "#f59e0b"
 
 STATUS_COLORS = {
-    "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Open": ACCENT,
     "Resolved": SUCCESS
 }
 
@@ -105,6 +105,11 @@ def prepare_public_data(df):
         df.get("Ticket Age", 0),
         errors="coerce"
     ).fillna(0)
+
+    # Recompute from the raw Status rather than trusting the cached
+    # "Status Category" value, which may have been written by an older
+    # version of map_status_category before a cutover to a new status set.
+    df["Status Category"] = df["Status"].apply(map_status_category)
 
     return df
 
@@ -225,16 +230,19 @@ def render():
     df = prepare_public_data(df)
 
     total_tickets = len(df)
-    in_progress = len(df[df["Status Category"] == "In Progress"])
-    pending = len(df[df["Status Category"] == "Pending"])
     resolved = len(df[df["Status Category"] == "Resolved"])
 
-    active_df = df[df["Status Category"].isin(["In Progress", "Pending"])]
+    active_df = df[df["Status Category"] == "Open"]
+    total_open = len(active_df)
+    in_progress = len(active_df[active_df["Status"] == "In Progress"])
+    waiting_customer = len(active_df[active_df["Status"] == "Waiting for customer"])
+    waiting_support = len(active_df[active_df["Status"] == "Waiting for support"])
+    waiting_approval = len(active_df[active_df["Status"] == "Waiting for approval"])
     overdue_1m = len(active_df[active_df["Ticket Age"] > 30])
 
     st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3 = st.columns(3)
 
     with c1:
         public_kpi_card(
@@ -247,23 +255,14 @@ def render():
 
     with c2:
         public_kpi_card(
-            "In Progress",
-            in_progress,
+            "Open",
+            total_open,
             "Currently active work",
             INFO_BLUE,
             "🔵"
         )
 
     with c3:
-        public_kpi_card(
-            "Pending",
-            pending,
-            "Waiting or dependency queue",
-            WARN_AMBER,
-            "🟡"
-        )
-
-    with c4:
         public_kpi_card(
             "Resolved",
             resolved,
@@ -272,7 +271,45 @@ def render():
             "🟢"
         )
 
+    c4, c5, c6, c7, c8 = st.columns(5)
+
+    with c4:
+        public_kpi_card(
+            "In Progress",
+            in_progress,
+            "Being worked on",
+            INFO_BLUE,
+            "🔧"
+        )
+
     with c5:
+        public_kpi_card(
+            "Waiting for Customer",
+            waiting_customer,
+            "Blocked on customer",
+            WARN_AMBER,
+            "🟡"
+        )
+
+    with c6:
+        public_kpi_card(
+            "Waiting for Support",
+            waiting_support,
+            "Blocked on support",
+            INFO_BLUE,
+            "🔷"
+        )
+
+    with c7:
+        public_kpi_card(
+            "Waiting for Approval",
+            waiting_approval,
+            "Blocked on approval",
+            "#7c3aed",
+            "🟣"
+        )
+
+    with c8:
         public_kpi_card(
             "Overdue > 1 Month",
             overdue_1m,
@@ -284,8 +321,7 @@ def render():
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
 
     resolved_rate = round((resolved / total_tickets) * 100, 1) if total_tickets else 0
-    pending_rate = round((pending / total_tickets) * 100, 1) if total_tickets else 0
-    active_rate = round(((in_progress + pending) / total_tickets) * 100, 1) if total_tickets else 0
+    active_rate = round((total_open / total_tickets) * 100, 1) if total_tickets else 0
 
     st.markdown(
         f"""
@@ -308,10 +344,9 @@ def render():
             </div>
             <div style="color:#1e3a4c; font-size:14.5px; line-height:1.7;">
                 The current Jira Service Management queue contains <b>{total_tickets} total tickets</b>.
-                Of these, <b>{resolved_rate}% are resolved</b>, while <b>{active_rate}% remain active</b>
-                across In Progress and Pending categories.
+                Of these, <b>{resolved_rate}% are resolved</b>, while <b>{active_rate}% remain open</b>
+                across In Progress, Waiting for Customer, Waiting for Support, and Waiting for Approval.
                 <br><br>
-                Pending tickets represent <b>{pending_rate}%</b> of the total queue.
                 There are <b>{overdue_1m} open tickets older than one month</b>, which should be monitored as an operational backlog risk.
                 <br><br>
                 <span style="color:#64748b; font-size:13px;">

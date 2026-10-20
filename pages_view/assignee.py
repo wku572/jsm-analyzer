@@ -1,22 +1,22 @@
 import streamlit as st
 import plotly.express as px
 
-from pages_view.historical_intelligence import STATUS_COLORS
-
 # Brand colors
 PRIMARY = "#0B4F63"     # Kifiya dark teal
 ACCENT = "#F28C28"      # orange
 
 STATUS_COLORS = {
     "In_Progress": PRIMARY,
-    "Pending": ACCENT
+    "Waiting_Customer": ACCENT,
+    "Waiting_Support": "#2563eb",
+    "Waiting_Approval": "#7c3aed"
 }
 def render(filtered_df):
 
     st.subheader("👤 Assignee Workload Analysis")
 
     active_df = filtered_df[
-        filtered_df["Status Category"].isin(["In Progress", "Pending"])
+        filtered_df["Status Category"] == "Open"
     ]
 
     if active_df.empty:
@@ -25,8 +25,10 @@ def render(filtered_df):
 
     assignee_summary = active_df.groupby("Assignee").agg(
         Open_Tickets=("Key", "count"),
-        In_Progress=("Status Category", lambda x: (x == "In Progress").sum()),
-        Pending=("Status Category", lambda x: (x == "Pending").sum()),
+        In_Progress=("Status", lambda x: (x == "In Progress").sum()),
+        Waiting_Customer=("Status", lambda x: (x == "Waiting for customer").sum()),
+        Waiting_Support=("Status", lambda x: (x == "Waiting for support").sum()),
+        Waiting_Approval=("Status", lambda x: (x == "Waiting for approval").sum()),
         Overdue_1_Month=("Ticket Age", lambda x: (x > 30).sum()),
         Overdue_2_Months=("Ticket Age", lambda x: (x > 60).sum()),
         Average_Age=("Ticket Age", "mean"),
@@ -39,7 +41,7 @@ def render(filtered_df):
     fig = px.bar(
         assignee_summary,
         x="Assignee",
-        y=["In_Progress", "Pending"],
+        y=["In_Progress", "Waiting_Customer", "Waiting_Support", "Waiting_Approval"],
         title="Open Tickets by Assignee",
         barmode="stack",
         color_discrete_map=STATUS_COLORS

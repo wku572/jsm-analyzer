@@ -9,14 +9,17 @@ SUCCESS = "#22C55E"     # green
 
 STATUS_COLORS = PRIMARY
 
+WAITING_STATUSES = ["Waiting for customer", "Waiting for support", "Waiting for approval"]
+
+
 def calculate_queue_health(df):
-    active_df = df[df["Status Category"] != "Resolved"]
+    active_df = df[df["Status Category"] == "Open"]
 
     active_total = len(active_df)
     if active_total == 0:
         return 100, "Healthy", "#16a34a"
 
-    pending = len(active_df[active_df["Status Category"] == "Pending"])
+    waiting = len(active_df[active_df["Status"].isin(WAITING_STATUSES)])
     overdue_1m = len(active_df[active_df["Ticket Age"] > 30])
     overdue_2m = len(active_df[active_df["Ticket Age"] > 60])
 
@@ -24,13 +27,13 @@ def calculate_queue_health(df):
         active_df[active_df["Priority"].isin(["Highest", "High"])]
     )
 
-    pending_rate = pending / active_total
+    waiting_rate = waiting / active_total
     overdue_1m_rate = overdue_1m / active_total
     overdue_2m_rate = overdue_2m / active_total
     high_priority_rate = high_priority_open / active_total
 
     score = 100
-    score -= pending_rate * 20
+    score -= waiting_rate * 20
     score -= overdue_1m_rate * 25
     score -= overdue_2m_rate * 35
     score -= high_priority_rate * 20
@@ -127,7 +130,7 @@ def alert_box(message, severity="warning"):
 def generate_alerts(df):
     alerts = []
 
-    active_df = df[df["Status Category"] != "Resolved"]
+    active_df = df[df["Status Category"] == "Open"]
 
     high_priority_old = len(
         active_df[
@@ -144,12 +147,12 @@ def generate_alerts(df):
             )
         )
 
-    pending = len(active_df[active_df["Status Category"] == "Pending"])
+    waiting = len(active_df[active_df["Status"].isin(WAITING_STATUSES)])
 
-    if pending > 50:
+    if waiting > 50:
         alerts.append(
             (
-                f"Pending queue is high with {pending} tickets waiting for action.",
+                f"Waiting queue is high with {waiting} tickets blocked on customer/support/approval.",
                 "warning"
             )
         )
@@ -190,13 +193,13 @@ def render(df):
         st.info("No data available for executive intelligence.")
         return
 
-    active_df = df[df["Status Category"] != "Resolved"]
+    active_df = df[df["Status Category"] == "Open"]
 
     score, status, color = calculate_queue_health(df)
 
     total = len(df)
     active_total = len(active_df)
-    pending = len(active_df[active_df["Status Category"] == "Pending"])
+    waiting = len(active_df[active_df["Status"].isin(WAITING_STATUSES)])
     overdue_1m = len(active_df[active_df["Ticket Age"] > 30])
     overdue_2m = len(active_df[active_df["Ticket Age"] > 60])
     high_priority_open = len(
@@ -217,7 +220,7 @@ def render(df):
         insight_card(
             "Active Tickets",
             active_total,
-            "In Progress + Pending workload",
+            "Open ticket workload",
             ACCENT
         )
 
@@ -337,12 +340,12 @@ def render(df):
     st.markdown("### 💡 Executive Summary")
 
     resolved = len(df[df["Status Category"] == "Resolved"])
-    in_progress = len(df[df["Status Category"] == "In Progress"])
+    in_progress = len(active_df[active_df["Status"] == "In Progress"])
 
     st.info(
         f"""
-        The queue currently contains **{in_progress} In Progress**, **{pending} Pending**, 
-        and **{resolved} Resolved** tickets from **{total} total tickets**.
+        The queue currently contains **{in_progress} In Progress**, **{waiting} Waiting**
+        (customer/support/approval), and **{resolved} Resolved** tickets from **{total} total tickets**.
 
         The current Queue Health Score is **{score}/100**, which indicates a **{status}** operational state.
 

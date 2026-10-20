@@ -117,26 +117,40 @@ def save_historical_snapshot(df):
         return
 
     total_tickets = len(clean_df)
-    in_progress = len(clean_df[clean_df["Status Category"] == "In Progress"])
-    pending = len(clean_df[clean_df["Status Category"] == "Pending"])
+
+    # "In Progress" and "Resolved" are still literal Jira status/category
+    # values after the status-model change, so these two keep their exact
+    # original meaning. "Pending" is not: no raw status maps to it anymore
+    # (Jira's old "Pending"/"Waiting for customer" workflow was replaced by
+    # In Progress/Waiting for customer/support/approval), so it - and every
+    # other column below that was derived from the old In Progress+Pending
+    # "active" definition - is frozen at 0 going forward rather than
+    # silently fed a different, incompatible meaning. The new open_* columns
+    # carry the real forward-looking numbers; historical_intelligence.py
+    # reads the old columns up to the cutover and the new ones after.
+    in_progress = len(clean_df[clean_df["Status"] == "In Progress"])
     resolved = len(clean_df[clean_df["Status Category"] == "Resolved"])
+    pending = 0
 
-    active_df = clean_df[
-        clean_df["Status Category"].isin(["In Progress", "Pending"])
-    ]
+    open_df = clean_df[clean_df["Status Category"] == "Open"]
+    open_total = len(open_df)
 
-    overdue_1_month = len(active_df[active_df["Ticket Age"] > 30])
-    overdue_2_months = len(active_df[active_df["Ticket Age"] > 60])
+    waiting_for_customer = len(open_df[open_df["Status"] == "Waiting for customer"])
+    waiting_for_support = len(open_df[open_df["Status"] == "Waiting for support"])
+    waiting_for_approval = len(open_df[open_df["Status"] == "Waiting for approval"])
 
-    high_priority_open = len(
-        active_df[
-            active_df["Priority"].isin(["High", "Highest", "Critical"])
+    open_overdue_1_month = len(open_df[open_df["Ticket Age"] > 30])
+    open_overdue_2_months = len(open_df[open_df["Ticket Age"] > 60])
+
+    open_high_priority = len(
+        open_df[
+            open_df["Priority"].isin(["High", "Highest", "Critical"])
         ]
     )
 
-    unassigned_open = len(
-        active_df[
-            active_df["Assignee"].fillna("").str.lower().isin(["", "unassigned"])
+    open_unassigned = len(
+        open_df[
+            open_df["Assignee"].fillna("").str.lower().isin(["", "unassigned"])
         ]
     )
 
@@ -149,7 +163,7 @@ def save_historical_snapshot(df):
     )
 
     assignee_summary = (
-        active_df.groupby("Assignee")
+        open_df.groupby("Assignee")
         .size()
         .sort_values(ascending=False)
         .head(10)
@@ -169,11 +183,19 @@ def save_historical_snapshot(df):
         "in_progress": int(in_progress),
         "pending": int(pending),
         "resolved": int(resolved),
-        "active_backlog": int(in_progress + pending),
-        "overdue_1_month": int(overdue_1_month),
-        "overdue_2_months": int(overdue_2_months),
-        "high_priority_open": int(high_priority_open),
-        "unassigned_open": int(unassigned_open),
+        "active_backlog": 0,
+        "overdue_1_month": 0,
+        "overdue_2_months": 0,
+        "high_priority_open": 0,
+        "unassigned_open": 0,
+        "open_total": int(open_total),
+        "waiting_for_customer": int(waiting_for_customer),
+        "waiting_for_support": int(waiting_for_support),
+        "waiting_for_approval": int(waiting_for_approval),
+        "open_overdue_1_month": int(open_overdue_1_month),
+        "open_overdue_2_months": int(open_overdue_2_months),
+        "open_high_priority": int(open_high_priority),
+        "open_unassigned": int(open_unassigned),
         "organization_summary": organization_summary,
         "assignee_summary": assignee_summary,
         "issue_type_summary": issue_type_summary

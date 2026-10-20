@@ -9,8 +9,7 @@ ACCENT = "#F28C28"      # orange
 SUCCESS = "#22C55E"     # green
 
 STATUS_COLORS = {
-    "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Open": ACCENT,
     "Resolved": SUCCESS
 }
 
@@ -21,13 +20,17 @@ def render(filtered_df):
     st.subheader("📌 Executive Overview")
 
     active_df = filtered_df[
-        filtered_df["Status Category"].isin(["In Progress", "Pending"])
+        filtered_df["Status Category"] == "Open"
     ]
 
     total_tickets = len(filtered_df)
-    total_in_progress = len(filtered_df[filtered_df["Status Category"] == "In Progress"])
-    total_pending = len(filtered_df[filtered_df["Status Category"] == "Pending"])
+    total_open = len(active_df)
     total_resolved = len(filtered_df[filtered_df["Status Category"] == "Resolved"])
+
+    total_in_progress = len(active_df[active_df["Status"] == "In Progress"])
+    total_waiting_customer = len(active_df[active_df["Status"] == "Waiting for customer"])
+    total_waiting_support = len(active_df[active_df["Status"] == "Waiting for support"])
+    total_waiting_approval = len(active_df[active_df["Status"] == "Waiting for approval"])
 
     overdue_1_month = len(active_df[active_df["Ticket Age"] > 30])
     overdue_2_months = len(active_df[active_df["Ticket Age"] > 60])
@@ -40,32 +43,43 @@ def render(filtered_df):
         active_df[active_df["Assignee"] == "Unassigned"]
     )
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
 
     with c1:
         kpi_card("Total Tickets", total_tickets, "All filtered tickets", "🎫")
 
     with c2:
-        kpi_card("In Progress", total_in_progress, "Currently active work", "🔵")
+        kpi_card("Open", total_open, "Currently active work", "🔵")
 
     with c3:
-        kpi_card("Pending", total_pending, "Waiting / blocked tickets", "🟡")
-
-    with c4:
         kpi_card("Resolved", total_resolved, "Completed tickets", "🟢")
 
-    c5, c6, c7, c8 = st.columns(4)
+    c4, c5, c6, c7 = st.columns(4)
+
+    with c4:
+        kpi_card("In Progress", total_in_progress, "Being worked on", "🔧")
 
     with c5:
-        kpi_card("Overdue > 1 Month", overdue_1_month, "Open tickets older than 30 days", "🔴")
+        kpi_card("Waiting for Customer", total_waiting_customer, "Blocked on customer", "🟡")
 
     with c6:
-        kpi_card("Overdue > 2 Months", overdue_2_months, "Critical aging backlog", "⏳")
+        kpi_card("Waiting for Support", total_waiting_support, "Blocked on support", "🔷")
 
     with c7:
-        kpi_card("High Priority Open", high_priority_open, "High/Highest active tickets", "🚨")
+        kpi_card("Waiting for Approval", total_waiting_approval, "Blocked on approval", "🟣")
+
+    c8, c9, c10, c11 = st.columns(4)
 
     with c8:
+        kpi_card("Overdue > 1 Month", overdue_1_month, "Open tickets older than 30 days", "🔴")
+
+    with c9:
+        kpi_card("Overdue > 2 Months", overdue_2_months, "Critical aging backlog", "⏳")
+
+    with c10:
+        kpi_card("High Priority Open", high_priority_open, "High/Highest active tickets", "🚨")
+
+    with c11:
         kpi_card("Unassigned Open", unassigned_open, "Needs owner assignment", "👤")
 
     st.divider()
@@ -129,10 +143,11 @@ def render(filtered_df):
 
     st.info(
         f"""
-        The dashboard currently shows **{total_in_progress} In Progress**, 
-        **{total_pending} Pending**, and **{total_resolved} Resolved** tickets.  
-        There are **{overdue_1_month} open tickets older than one month**, 
-        including **{overdue_2_months} tickets older than two months**.  
+        The dashboard currently shows **{total_in_progress} In Progress**,
+        **{total_waiting_customer} Waiting for Customer**, **{total_waiting_support} Waiting for Support**,
+        **{total_waiting_approval} Waiting for Approval**, and **{total_resolved} Resolved** tickets.
+        There are **{overdue_1_month} open tickets older than one month**,
+        including **{overdue_2_months} tickets older than two months**.
         These aging tickets should be reviewed first because they indicate backlog risk.
         """
     )

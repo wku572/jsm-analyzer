@@ -7,20 +7,15 @@ from datetime import datetime, timezone
 
 def map_status_category(status):
     resolved_statuses = [
-        "Resolved", "Completed", "Closed",
-        "Canceled", "Cancelled", "Done"
-    ]
-
-    pending_statuses = [
-        "Waiting for customer", "Pending"
+        "Resolved", "Closed", "Canceled"
     ]
 
     if status in resolved_statuses:
         return "Resolved"
-    elif status in pending_statuses:
-        return "Pending"
     else:
-        return "In Progress"
+        # In Progress, Waiting for customer/support/approval, and any
+        # unrecognized future status all count as still needing attention.
+        return "Open"
 
 
 def classify_age_duration(ticket_age):

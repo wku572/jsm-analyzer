@@ -7,8 +7,7 @@ ACCENT = "#F28C28"      # orange
 SUCCESS = "#22C55E"     # green
 
 STATUS_COLORS = {
-    "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Open": ACCENT,
     "Resolved": SUCCESS
 }
 
@@ -52,17 +51,20 @@ def render(filtered_df):
     st.subheader("📋 Status Breakdown Table")
     st.dataframe(status_detail, use_container_width=True, hide_index=True)
 
-    in_progress = len(filtered_df[filtered_df["Status Category"] == "In Progress"])
-    pending = len(filtered_df[filtered_df["Status Category"] == "Pending"])
+    in_progress = len(filtered_df[filtered_df["Status"] == "In Progress"])
+    waiting_customer = len(filtered_df[filtered_df["Status"] == "Waiting for customer"])
+    waiting_support = len(filtered_df[filtered_df["Status"] == "Waiting for support"])
+    waiting_approval = len(filtered_df[filtered_df["Status"] == "Waiting for approval"])
     resolved = len(filtered_df[filtered_df["Status Category"] == "Resolved"])
 
     st.subheader("📍 Queue Health Interpretation")
 
     st.info(
         f"""
-        The queue currently contains **{in_progress} In Progress**, 
-        **{pending} Pending**, and **{resolved} Resolved** tickets.  
-        Raw Jira statuses are grouped under the official reporting categories, 
+        The queue currently contains **{in_progress} In Progress**,
+        **{waiting_customer} Waiting for customer**, **{waiting_support} Waiting for support**,
+        **{waiting_approval} Waiting for approval**, and **{resolved} Resolved** tickets.
+        Raw Jira statuses are grouped under the official reporting categories,
         so operational reporting remains consistent even if Jira has many workflow statuses.
         """
     )

@@ -7,8 +7,7 @@ ACCENT = "#F28C28"      # orange
 SUCCESS = "#22C55E"     # green
 
 STATUS_COLORS = {
-    "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Open": ACCENT,
     "Resolved": SUCCESS
 }
 
@@ -39,7 +38,7 @@ def render(filtered_df):
     st.plotly_chart(fig, use_container_width=True)
 
     active_df = filtered_df[
-        filtered_df["Status Category"].isin(["In Progress", "Pending"])
+        filtered_df["Status Category"] == "Open"
     ]
 
     high_priority_open = active_df[

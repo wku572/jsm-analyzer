@@ -7,27 +7,59 @@ ACCENT = "#F28C28"
 SUCCESS = "#22C55E"
 
 STATUS_COLORS = {
-    "In Progress": PRIMARY,
-    "Pending": ACCENT,
+    "Open": ACCENT,
     "Resolved": SUCCESS
 }
 
-STATUS_ORDER = ["In Progress", "Pending", "Resolved"]
+STATUS_ORDER = ["Open", "Resolved"]
 LOCAL_TZ = "Africa/Addis_Ababa"
+
+OPEN_SUB_STATUSES = [
+    "In Progress",
+    "Waiting for customer",
+    "Waiting for support",
+    "Waiting for approval"
+]
+
+SUB_STATUS_COLORS = {
+    "In Progress": PRIMARY,
+    "Waiting for customer": ACCENT,
+    "Waiting for support": "#2563eb",
+    "Waiting for approval": "#7c3aed",
+    "Resolved": SUCCESS
+}
 
 
 def prepare_status_columns(summary_df):
-    for col in STATUS_ORDER:
+    for col in OPEN_SUB_STATUSES + ["Resolved"]:
         if col not in summary_df.columns:
             summary_df[col] = 0
 
-    summary_df["Total"] = (
-        summary_df["In Progress"] +
-        summary_df["Pending"] +
-        summary_df["Resolved"]
-    )
+    summary_df["Open Tickets"] = summary_df[OPEN_SUB_STATUSES].sum(axis=1)
+    summary_df["Total"] = summary_df["Open Tickets"] + summary_df["Resolved"]
 
     return summary_df
+
+
+def _open_and_resolved_pivot(df, index_col):
+    open_df = df[df["Status Category"] == "Open"]
+
+    pivot = open_df.pivot_table(
+        index=index_col,
+        columns="Status",
+        values="Key",
+        aggfunc="count",
+        fill_value=0
+    ).reset_index()
+
+    resolved_counts = (
+        df[df["Status Category"] == "Resolved"]
+        .groupby(index_col)["Key"]
+        .count()
+    )
+    pivot["Resolved"] = pivot[index_col].map(resolved_counts).fillna(0).astype(int)
+
+    return pivot
 
 
 def complete_trend_periods(trend_summary, periods):
@@ -178,24 +210,17 @@ def render(filtered_df):
 
     st.subheader(f"🏦 {period_label} Organization Analysis")
 
-    org_summary = df.pivot_table(
-        index="Organizations",
-        columns="Status Category",
-        values="Key",
-        aggfunc="count",
-        fill_value=0
-    ).reset_index()
-
+    org_summary = _open_and_resolved_pivot(df, "Organizations")
     org_summary = prepare_status_columns(org_summary)
     org_summary = org_summary.sort_values("Total", ascending=False).head(15)
 
     fig = px.bar(
         org_summary,
         x="Organizations",
-        y=STATUS_ORDER,
+        y=OPEN_SUB_STATUSES + ["Resolved"],
         title=f"{period_label} Tickets by Organization",
         barmode="group",
-        color_discrete_map=STATUS_COLORS
+        color_discrete_map=SUB_STATUS_COLORS
     )
 
     fig.update_layout(
@@ -206,31 +231,24 @@ def render(filtered_df):
     st.plotly_chart(fig, width="stretch")
 
     st.dataframe(
-        org_summary[["Organizations", "In Progress", "Pending", "Resolved", "Total"]],
+        org_summary[["Organizations", *OPEN_SUB_STATUSES, "Resolved", "Open Tickets", "Total"]],
         width="stretch",
         hide_index=True
     )
 
     st.subheader(f"👤 {period_label} Assignee Analysis")
 
-    assignee_summary = df.pivot_table(
-        index="Assignee",
-        columns="Status Category",
-        values="Key",
-        aggfunc="count",
-        fill_value=0
-    ).reset_index()
-
+    assignee_summary = _open_and_resolved_pivot(df, "Assignee")
     assignee_summary = prepare_status_columns(assignee_summary)
     assignee_summary = assignee_summary.sort_values("Total", ascending=False).head(15)
 
     fig = px.bar(
         assignee_summary,
         x="Assignee",
-        y=STATUS_ORDER,
+        y=OPEN_SUB_STATUSES + ["Resolved"],
         title=f"{period_label} Tickets by Assignee",
         barmode="group",
-        color_discrete_map=STATUS_COLORS
+        color_discrete_map=SUB_STATUS_COLORS
     )
 
     fig.update_layout(
@@ -241,7 +259,7 @@ def render(filtered_df):
     st.plotly_chart(fig, width="stretch")
 
     st.dataframe(
-        assignee_summary[["Assignee", "In Progress", "Pending", "Resolved", "Total"]],
+        assignee_summary[["Assignee", *OPEN_SUB_STATUSES, "Resolved", "Open Tickets", "Total"]],
         width="stretch",
         hide_index=True
     )
